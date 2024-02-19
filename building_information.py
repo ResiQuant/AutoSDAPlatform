@@ -100,9 +100,6 @@ class Building(object):
         (1) Change the working directory to the folder where .csv data are stored
         (2) Open the .csv file and save all relevant information to the object itself
         """
-        #os.chdir(self.directory['building data'])
-        #with open('Geometry.csv', 'r') as csvfile:
-        #    geometry_data = pd.read_csv(csvfile, header=0)
         geometry_data = pd.read_csv(os.path.join(self.directory['building data'], 'Geometry.csv'), header=0)
 
         # Each variable is a scalar
@@ -197,40 +194,37 @@ class Building(object):
         This method is used to read the design constants for this frame
         
         """
-        currDir = os.getcwd()
-        os.chdir(self.directory['building data'])
-        from global_variables import SECTION_DATABASE        
-        from global_variables import COLUMN_DATABASE
-        from global_variables import BEAM_DATABASE
-        from global_variables import PERIOD_FOR_DRIFT_LIMIT
-        from global_variables import EXTERIOR_INTERIOR_COLUMN_RATIO
-        from global_variables import BEAM_TO_COLUMN_RATIO
-        from global_variables import IDENTICAL_SIZE_PER_STORY        
-        from global_variables import UPPER_LOWER_COLUMN_Zx
-        from global_variables import RBS_STIFFNESS_FACTOR
-        from global_variables import DRIFT_LIMIT
-        from global_variables import ACCIDENTAL_TORSION
-        os.chdir(currDir)
-                
-        self.SECTION_DATABASE = SECTION_DATABASE
-        self.COLUMN_DATABASE = COLUMN_DATABASE
-        self.BEAM_DATABASE = BEAM_DATABASE
-        self.PERIOD_FOR_DRIFT_LIMIT = PERIOD_FOR_DRIFT_LIMIT
-        self.EXTERIOR_INTERIOR_COLUMN_RATIO = EXTERIOR_INTERIOR_COLUMN_RATIO
-        self.BEAM_TO_COLUMN_RATIO = BEAM_TO_COLUMN_RATIO
-        self.IDENTICAL_SIZE_PER_STORY = IDENTICAL_SIZE_PER_STORY
-        self.UPPER_LOWER_COLUMN_Zx = UPPER_LOWER_COLUMN_Zx
-        self.RBS_STIFFNESS_FACTOR = RBS_STIFFNESS_FACTOR
-        self.DRIFT_LIMIT = DRIFT_LIMIT
-        self.ACCIDENTAL_TORSION = ACCIDENTAL_TORSION
         
-        from global_variables import yield_stress
-        from global_variables import ultimate_stress
-        from global_variables import elastic_modulus
-        from global_variables import Ry_value
+        design_constants = pd.read_csv(os.path.join(self.directory['building data'], 'design_constants.csv'))
+        
+        section_database_path = design_constants['section_database_path'].iloc[0]
+        column_database_path = design_constants['column_database_path'].iloc[0]
+        beam_database_path = design_constants['beam_database_path'].iloc[0]
+        self.PERIOD_FOR_DRIFT_LIMIT = design_constants['PERIOD_FOR_DRIFT_LIMIT'].iloc[0]
+        self.EXTERIOR_INTERIOR_COLUMN_RATIO = design_constants['EXTERIOR_INTERIOR_COLUMN_RATIO'].iloc[0]
+        self.BEAM_TO_COLUMN_RATIO = design_constants['BEAM_TO_COLUMN_RATIO'].iloc[0]
+        self.IDENTICAL_SIZE_PER_STORY = design_constants['IDENTICAL_SIZE_PER_STORY'].iloc[0]
+        self.UPPER_LOWER_COLUMN_Zx = design_constants['UPPER_LOWER_COLUMN_Zx'].iloc[0]
+        self.ACCIDENTAL_TORSION = design_constants['ACCIDENTAL_TORSION'].iloc[0]
+        self.DRIFT_LIMIT = design_constants['DRIFT_LIMIT'].iloc[0]
+        self.STRONG_COLUMN_WEAK_BEAM_RATIO = design_constants['STRONG_COLUMN_WEAK_BEAM_RATIO'].iloc[0]
+        self.RBS_STIFFNESS_FACTOR = design_constants['RBS_STIFFNESS_FACTOR'].iloc[0]
+        self.yield_stress = design_constants['yield_stress'].iloc[0]
+        self.ultimate_stress = design_constants['ultimate_stress'].iloc[0]
+        self.elastic_modulus = design_constants['elastic_modulus'].iloc[0]
+        self.Ry_value = design_constants['Ry_value'].iloc[0]
+        
+        # Load: SECTION_DATABASE (a panda dataframe read from .csv file) (All sizes)
+        self.SECTION_DATABASE = pd.read_csv(section_database_path, header=0)
+        
+        # Load: COLUMN_DATABASE (only contains the sizes that are feasible for columns)
+        self.COLUMN_DATABASE = pd.read_csv(column_database_path, header=0)
+        
+        # Load: BEAM_DATABASE (only contains the sizes that are feasible for beams)
+        self.BEAM_DATABASE = pd.read_csv(beam_database_path, header=0)
                 
-        self.steel = SteelMaterial(yield_stress=yield_stress, ultimate_stress=ultimate_stress, 
-                                   elastic_modulus=elastic_modulus, Ry_value=Ry_value)  # Unit: ksi
+        self.steel = SteelMaterial(yield_stress=self.yield_stress, ultimate_stress=self.ultimate_stress, 
+                                   elastic_modulus=self.elastic_modulus, Ry_value=self.Ry_value)  # Unit: ksi
         
 
     def compute_seismic_force(self):
@@ -294,9 +288,9 @@ class Building(object):
         beam_depth = []
         for story in range(0, self.geometry['number of story']):  # story number
             # Initialize the Series that will be used to store the member sizes for each single story
-            temp_interior_column = pd.Series()
-            temp_exterior_column = pd.Series()
-            temp_beam = pd.Series()
+            temp_interior_column = pd.Series(dtype="string")
+            temp_exterior_column = pd.Series(dtype="string")
+            temp_beam = pd.Series(dtype="string")
             # Convert string (read from csv) to list
             interior_column_depth_list = depth_data.loc[story, 'interior column'].split(', ')
             exterior_column_depth_list = depth_data.loc[story, 'exterior column'].split(', ')
@@ -366,15 +360,11 @@ class Building(object):
         :return: the first mode period stored in self.elf_parameters
         """
         # Change the working directory to the folder where the eigen value analysis results are stored
-        currDir = os.getcwd()
         path_modal_period = os.path.join(self.directory['building elastic model'], 'EigenAnalysis')
-        os.chdir(path_modal_period)
         # Save the first mode period in elf_parameters
-        period = pd.read_csv('Periods.out', header=None)
+        period = pd.read_csv(os.path.join(path_modal_period, 'Periods.out'), header=None)
         self.elf_parameters['modal period'] = np.asscalar((period.iloc[0, 0]))
-        
-        # Return to base directory
-        os.chdir(currDir)
+
 
     def read_story_drift(self):
         """
@@ -384,19 +374,16 @@ class Building(object):
         """
         # Change the working directory to the folder where story drifts are stored
         path_story_drift = os.path.join(self.directory['building elastic model'], 'GravityEarthquake', 'StoryDrifts')
-        currDir = os.getcwd()
-        os.chdir(path_story_drift)
+
         # Save all story drifts in an array
         story_drift = np.zeros([self.geometry['number of story'], 1])
         for story in range(self.geometry['number of story']):
             file_name = 'Story' + str(story+1) + '.out'
-            read_data = np.loadtxt(file_name)
+            read_data = np.loadtxt(os.path.join(path_story_drift, file_name))
             story_drift[story] = read_data[-1, -1]
         # Assign the story drifts results into class attribute
         self.elastic_response = {'story drift': story_drift}
         
-        # Return to base directory
-        os.chdir(currDir)
 
     def optimize_member_for_drift(self):
         """
@@ -406,6 +393,7 @@ class Building(object):
         # Find the story which has the smallest drift
         target_story = np.where(self.elastic_response['story drift'] ==
                                 np.min(self.elastic_response['story drift']))[0][0]
+        
         # Update the interior column size in target story
         self.member_size['interior column'][target_story] = \
             decrease_member_size(self.element_candidate['interior column']['story %s' % (target_story+1)],

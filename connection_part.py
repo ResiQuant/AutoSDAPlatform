@@ -46,7 +46,7 @@ class Connection(object):
     """
 
     def __init__(self, connection_type, steel, beam_dead_load, beam_live_load, span,
-                 left_beam=None, right_beam=None, top_column=None, bottom_column=None):
+                 STRONG_COLUMN_WEAK_BEAM_RATIO, left_beam=None, right_beam=None, top_column=None, bottom_column=None):
         """
         This function initializes all attributes of Connection class.
         :param connection_type: a string which denotes the type of beam-column connection.
@@ -58,6 +58,7 @@ class Connection(object):
         :param beam_dead_load: dead load on beam (unit: lb/ft)
         :param beam_live_load: live load on beam (unit: lb/ft)
         :param span: the length of beam (unit: ft)
+        :param STRONG_COLUMN_WEAK_BEAM_RATIO: target SCWBR
         :param left_beam: a class defined in "beam_component.py" file which represents the beam at
                           left side of the connection.
         :param right_beam: a class defined in "beam_component.py" file which represents the beam at
@@ -91,7 +92,7 @@ class Connection(object):
         self.compute_plastic_moment(connection_type, steel, left_beam, right_beam)
         self.check_moment_column_face(connection_type)
         self.check_shear_strength(connection_type, beam_dead_load, beam_live_load, left_beam, right_beam)
-        self.check_column_beam_relationships(connection_type, steel, left_beam, right_beam, top_column, bottom_column)
+        self.check_column_beam_relationships(connection_type, steel, left_beam, right_beam, top_column, bottom_column, STRONG_COLUMN_WEAK_BEAM_RATIO)
         self.determine_doubler_plate(connection_type, steel, left_beam, right_beam, bottom_column, top_column)
 
     def check_column_beam(self, connection_type, left_beam, right_beam, top_column, bottom_column):

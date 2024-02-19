@@ -2,6 +2,7 @@
 # Developed by GUAN, XINGQUAN @ UCLA in April 2021
 
 import numpy as np
+import os
 import sys
 import pickle
 import pandas as pd
@@ -38,7 +39,7 @@ def create_column_set(building, elastic_demand, steel):
             length = (building.geometry['floor height'][story + 1] - building.geometry['floor height'][story]).item()
             # Build instance for each column member
             temp_column = Column(building.member_size[column_type][story], axial_demand, shear_demand, moment_bottom,
-                                 moment_top, length, length, steel)
+                                 moment_top, length, length, steel, building.SECTION_DATABASE)
             one_story_columns.append(temp_column)
             # Check the flag of each column
             if not temp_column.check_flag():
@@ -69,7 +70,7 @@ def create_beam_set(building, elastic_demand, steel):
             moment_right = elastic_demand.dominate_load['beam moment'][story, 2 * bay + 1]
             # Build instance for each beam member
             temp_beam = Beam(building.member_size['beam'][story], length,
-                             shear_demand, moment_left, moment_right, steel)
+                             shear_demand, moment_left, moment_right, steel, building.SECTION_DATABASE)
             one_story_beams.append(temp_beam)
             # Check the flag of each beam
             if not temp_beam.check_flag():
@@ -105,6 +106,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an exterior joint
                 if connection_no == 0:
                     temp_connection = Connection('typical exterior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=None,
                                                  top_column=column_set[story + 1][connection_no],
@@ -112,6 +114,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an exterior joint
                 elif connection_no == building.geometry['number of X bay']:
                     temp_connection = Connection('typical exterior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no-1],
                                                  right_beam=None,
                                                  top_column=column_set[story + 1][connection_no],
@@ -119,6 +122,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an interior joint
                 else:
                     temp_connection = Connection('typical interior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no - 1],
                                                  right_beam=beam_set[story][connection_no],
                                                  top_column=column_set[story + 1][connection_no],
@@ -128,6 +132,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an left top exterior joint
                 if connection_no == 0:
                     temp_connection = Connection('top exterior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=None,
                                                  top_column=None,
@@ -135,6 +140,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an right top exterior joint
                 elif connection_no == building.geometry['number of X bay']:
                     temp_connection = Connection('top exterior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no-1],
                                                  right_beam=None,
                                                  top_column=None,
@@ -143,6 +149,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                 # The connection is an top interior joint
                 else:
                     temp_connection = Connection('top interior', steel, dead_load, live_load, span,
+                                                 building.STRONG_COLUMN_WEAK_BEAM_RATIO,
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=beam_set[story][connection_no],
                                                  top_column=None,
@@ -171,18 +178,18 @@ def save_python_files(building, column_set, beam_set, connection_set, constructa
 
     # Nonlinear model generation may require information for building, beam/column hinge, and panel zone thickness.
     # Store the building class to "building.pkl"
-    with open(prefix + 'building.pkl', 'wb') as output_file:
+    with open(os.path.join(building.directory['building data'], prefix + 'building.pkl'), 'wb') as output_file:
         pickle.dump(building, output_file)
 
     # Store the construction beam set
-    with open(prefix + 'beam_set.pkl', 'wb') as output_file:
+    with open(os.path.join(building.directory['building data'],prefix + 'beam_set.pkl'), 'wb') as output_file:
         pickle.dump(beam_set, output_file)
 
     # Store the construction column set
-    with open(prefix + 'column_set.pkl', 'wb') as output_file:
+    with open(os.path.join(building.directory['building data'],prefix + 'column_set.pkl'), 'wb') as output_file:
         pickle.dump(column_set, output_file)
 
-    with open(prefix + 'connection_set.pkl', 'wb') as output_file:
+    with open(os.path.join(building.directory['building data'],prefix + 'connection_set.pkl'), 'wb') as output_file:
         pickle.dump(connection_set, output_file)
 
 
@@ -205,7 +212,7 @@ def save_design_size(building, constructability):
                                                          building.construction_size['interior column'],
                                                          building.construction_size['beam']]),
                                    columns=['exterior column', 'interior column', 'beam'])
-    member_size.to_csv(prefix+'Size.csv', sep=',', index=False)
+    member_size.to_csv(os.path.join(building.directory['building data'], prefix+'Size.csv'), sep=',', index=False)
 
 
 def save_design_drifts(building, constructability):
@@ -217,7 +224,7 @@ def save_design_drifts(building, constructability):
     """
     prefix = 'Construction' if constructability else 'Optimal'
     design_drift = pd.DataFrame(data=building.elastic_response['story drift'], columns=['story drift'])
-    design_drift.to_csv(prefix+'Drift.csv', sep=',', index=False)
+    design_drift.to_csv(os.path.join(building.directory['building data'], prefix+'Drift.csv'), sep=',', index=False)
 
 
 def store_doubler_plate_thickness(building, connection_set, constructability):
@@ -238,7 +245,7 @@ def store_doubler_plate_thickness(building, connection_set, constructability):
         for col in range(building.geometry['number of X bay'] + 1):
             name = header[col]
             doubler_plate.loc[row, name] = connection_set[row][col].doubler_plate_thickness
-    doubler_plate.to_csv(prefix+'DoublerPlate.csv', sep=',', index=False)
+    doubler_plate.to_csv(os.path.join(building.directory['building data'], prefix+'DoublerPlate.csv'), sep=',', index=False)
 
 
 def store_strong_column_weak_beam_ratio(building, connection_set, constructability):
@@ -263,7 +270,7 @@ def store_strong_column_weak_beam_ratio(building, connection_set, constructabili
             else:
                 column_beam_ratio.loc[row, name] = \
                     connection_set[row][col].moment['Mpc'] / connection_set[row][col].moment['Mpb']
-    column_beam_ratio.to_csv(prefix+'ColumnBeamRatio.csv', sep=',', index=False)
+    column_beam_ratio.to_csv(os.path.join(building.directory['building data'], prefix+'ColumnBeamRatio.csv'), sep=',', index=False)
 
 
 def store_column_demand_to_capacity_ratios(building, column_set, constructability):
@@ -283,7 +290,7 @@ def store_column_demand_to_capacity_ratios(building, column_set, constructabilit
             for bay in range(0, building.geometry['number of X bay'] + 1):
                 column_DC[story][bay] = column_set[story][bay].demand_capacity_ratio[force]
         file_name = prefix + 'Column' + force[0].upper() + force[1:] + 'DCRatio.csv'
-        pd.DataFrame(columns=header, data=column_DC).to_csv(file_name, sep=',', index=False)
+        pd.DataFrame(columns=header, data=column_DC).to_csv(os.path.join(building.directory['building data'], file_name), sep=',', index=False)
 
 
 def store_beam_demand_to_capacity_ratios(building, beam_set, constructability):
@@ -303,7 +310,7 @@ def store_beam_demand_to_capacity_ratios(building, beam_set, constructability):
             for bay in range(0, building.geometry['number of X bay']):
                 beam_DC[story][bay] = beam_set[story][bay].demand_capacity_ratio[force]
         file_name = prefix + 'Beam' + force[0].upper() + force[1:] + 'DCRatio.csv'
-        pd.DataFrame(columns=header, data=beam_DC).to_csv(file_name, sep=',', index=False)
+        pd.DataFrame(columns=header, data=beam_DC).to_csv(os.path.join(building.directory['building data'], file_name), sep=',', index=False)
 
 
 def save_all_design_results(building, column_set, beam_set, connection_set, constructability):
@@ -316,7 +323,7 @@ def save_all_design_results(building, column_set, beam_set, connection_set, cons
     :param constructability: a boolean variable to denote whether to consider the constructability.
     :return: No variables. Just save all design details.
     """
-      
+    
     # Save all python files which include design results.
     save_python_files(building, column_set, beam_set, connection_set, constructability)
     # Store the design member sizes

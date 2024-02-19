@@ -361,7 +361,6 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     construction_connection_set, not_feasible_construction_connection = \
         create_connection_set(building_3, construction_column_set, construction_beam_set, building_3.steel)
 
-
     # ********************************************************************
     # //////////// Check Column Width Greater than Beam //////////////////
     # ********************************************************************
@@ -377,14 +376,8 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # building_3: construction design results
 
     # Change the working directory to building data
-    currDir = os.getcwd()
-    os.chdir(building_1.directory['building data'])
-
     save_all_design_results(building_1, column_set, beam_set, connection_set, False)
     save_all_design_results(building_3, construction_column_set, construction_beam_set, construction_connection_set,
                             True)
-
-    # Go back to base directory
-    os.chdir(currDir)
     
     return 'Feasible design found'

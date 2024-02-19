@@ -32,6 +32,8 @@ class Column(object):
         :param moment_demand_top: a float number which describes moment demand at top of column.
         :param Lx: unbraced length in x direction.
         :param Ly: unbraced length in y direction.
+        :param steel: object with steel properties
+        :param SECTION_DATABASE: csv with all steel sections
         """
         # Assign the necessary information for column class
         self.section = search_section_property(section_size, SECTION_DATABASE)

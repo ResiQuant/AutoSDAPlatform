@@ -65,28 +65,28 @@ class ElasticOutput(object):
         """
         for load_type in LOAD_TYPE:
             # Define the directory where the column force output is stored
-            path_output = building.directory['building elastic model'] / load_type / 'GlobalColumnForces'
-            os.chdir(path_output)
+            path_output = os.path.join(building.directory['building elastic model'], load_type, 'GlobalColumnForces')
+            
             # Initialize a matrix to store all column component forces: axial, shear and moment.
             column_load = np.zeros([building.geometry['number of story'], (building.geometry['number of X bay']+1)*6])
             # Read output txt files
             for story in range(0, building.geometry['number of story']):
                 # Define the output txt file name
-                file_name = 'GlobalColumnForcesStory' + str(story+1) + '.out'
+                file_name = os.path.join(path_output, 'GlobalColumnForcesStory' + str(story+1) + '.out')
                 read_data = np.loadtxt(file_name)
                 column_load[story, :] = read_data[-1, 1:]
             # Store column forces into different load cases
             self.raw_column_load[load_type] = column_load
 
             # Define the directory where the beam force is stored
-            path_output = building.directory['building elastic model'] / load_type / 'GlobalBeamForces'
-            os.chdir(path_output)
+            path_output = os.path.join(building.directory['building elastic model'], load_type, 'GlobalBeamForces')
+            
             #  Initialize a matrix to store all beam component forces: axial, shear and moment
             beam_load = np.zeros([building.geometry['number of story'], building.geometry['number of X bay']*6])
             # Read beam load from output txt files
             for story in range(0, building.geometry['number of story']):
                 # Define output txt file name
-                file_name = 'GlobalXBeamForcesLevel' + str(story+2) + '.out'
+                file_name = os.path.join(path_output, 'GlobalXBeamForcesLevel' + str(story+2) + '.out')
                 read_data = np.loadtxt(file_name)
                 beam_load[story, :] = read_data[-1, 1:]
             # Store beam forces based on load scenario

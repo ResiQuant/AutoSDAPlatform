@@ -28,6 +28,8 @@ class Beam(object):
         :param shear_demand: a float number denoting the shear demand.
         :param moment_demand_left: a float number denoting the moment demand at right end.
         :param moment_demand_right: a float number denoting the moment demand at left end.
+        :param steel: object with steel properties
+        :param SECTION_DATABASE: csv with all steel sections
         """
         # Assign the necessary information for column class
         self.section = search_section_property(section_size, SECTION_DATABASE)
