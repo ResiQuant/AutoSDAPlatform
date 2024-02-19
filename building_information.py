@@ -7,9 +7,9 @@ import numpy as np
 import os
 import pandas as pd
 
-from help_functions import determine_Fa_coefficient
-from help_functions import determine_Fv_coefficient
-from help_functions import calculate_DBE_acceleration
+#from help_functions import determine_Fa_coefficient
+#from help_functions import determine_Fv_coefficient
+#from help_functions import calculate_DBE_acceleration
 from help_functions import determine_Cu_coefficient
 from help_functions import determine_floor_height
 from help_functions import calculate_Cs_coefficient
@@ -21,20 +21,8 @@ from help_functions import search_section_property
 from help_functions import decrease_member_size
 from help_functions import increase_member_size
 from help_functions import constructability_helper
-from global_variables import SECTION_DATABASE
-from global_variables import COLUMN_DATABASE
-from global_variables import BEAM_DATABASE
-from global_variables import PERIOD_FOR_DRIFT_LIMIT
 
-
-# #########################################################################
-#                Global Constants Subjected to Revision                   #
-# #########################################################################
-
-from global_variables import EXTERIOR_INTERIOR_COLUMN_RATIO
-from global_variables import BEAM_TO_COLUMN_RATIO
-from global_variables import IDENTICAL_SIZE_PER_STORY
-
+from steel_material import SteelMaterial
 
 # #########################################################################
 #          Define a class including all building information              #
@@ -54,7 +42,7 @@ class Building(object):
     (7) Propose initial beam and column sizes
     """
 
-    def __init__(self, building_id, base_directory):
+    def __init__(self, building_id, base_directory, autoSDA_directory):
         """
         This function initializes the attributes of a building instance
         :param building_id: a string that used as a UID to label the building
@@ -63,6 +51,7 @@ class Building(object):
         # Assign basic information: unique ID for the building and base path
         self.UID = building_id
         self.base_directory = base_directory
+        self.autoSDA_directory = autoSDA_directory
 
         # Initialize the attributes for the building instance (will be assigned values in the class methods)
         self.directory = {}
@@ -82,21 +71,22 @@ class Building(object):
         self.read_geometry()
         self.read_gravity_loads()
         self.read_elf_parameters()
+        self.read_design_constants()
         self.determine_member_candidate()
         self.initialize_member()
 
     def define_directory(self):
         # Define all useful paths based on the building UID and path to root folder
         # Define path to folder where the baseline .tcl files for elastic analysis are saved
-        baseline_elastic_directory = self.base_directory / 'BaselineTclFiles' / 'ElasticAnalysis'
+        baseline_elastic_directory = os.path.join(self.autoSDA_directory, 'BaselineTclFiles', 'ElasticAnalysis')
         # Define path to folder where the baseline .tcl files for nonlinear analysis are stored
-        baseline_nonlinear_directory = self.base_directory / 'BaselineTclFiles' / 'NonlinearAnalysis'
+        baseline_nonlinear_directory = os.path.join(self.autoSDA_directory, 'BaselineTclFiles', 'NonlinearAnalysis')
         # Define path to folder where the building data (.csv) are saved
-        building_data_directory = self.base_directory / 'BuildingData' / self.UID
+        building_data_directory = os.path.join(self.base_directory, 'BuildingData', self.UID)
         # Define path to folder where the generated elastic analysis OpenSees model is saved
-        building_elastic_model_directory = self.base_directory / 'BuildingElasticModels' / self.UID
+        building_elastic_model_directory = os.path.join(self.base_directory, 'BuildingElasticModels', self.UID)
         # Define path to folder where the generated nonlinear analysis OpenSees model is saved
-        building_nonlinear_model_directory = self.base_directory / 'BuildingNonlinearModels' / self.UID
+        building_nonlinear_model_directory = os.path.join(self.base_directory, 'BuildingNonlinearModels', self.UID)
         # Store all necessary directories into a dictionary
         self.directory = {'baseline files elastic': baseline_elastic_directory,
                           'baseline files nonlinear': baseline_nonlinear_directory,
@@ -110,20 +100,21 @@ class Building(object):
         (1) Change the working directory to the folder where .csv data are stored
         (2) Open the .csv file and save all relevant information to the object itself
         """
-        os.chdir(self.directory['building data'])
-        with open('Geometry.csv', 'r') as csvfile:
-            geometry_data = pd.read_csv(csvfile, header=0)
+        #os.chdir(self.directory['building data'])
+        #with open('Geometry.csv', 'r') as csvfile:
+        #    geometry_data = pd.read_csv(csvfile, header=0)
+        geometry_data = pd.read_csv(os.path.join(self.directory['building data'], 'Geometry.csv'), header=0)
 
         # Each variable is a scalar
-        number_of_story = geometry_data.loc[0, 'number of story']
-        number_of_X_bay = geometry_data.loc[0, 'number of X bay']
-        number_of_Z_bay = geometry_data.loc[0, 'number of Z bay']
+        number_of_story = int(geometry_data.loc[0, 'number of story'])
+        number_of_X_bay = int(geometry_data.loc[0, 'number of X bay'])
+        number_of_Z_bay = int(geometry_data.loc[0, 'number of Z bay'])
         first_story_height = geometry_data.loc[0, 'first story height']
         typical_story_height = geometry_data.loc[0, 'typical story height']
         X_bay_width = geometry_data.loc[0, 'X bay width']
         Z_bay_width = geometry_data.loc[0, 'Z bay width']
-        number_of_X_LFRS = geometry_data.loc[0, 'number of X LFRS']  # number of lateral resisting frame in X direction
-        number_of_Z_LFRS = geometry_data.loc[0, 'number of Z LFRS']  # number of lateral resisting frame in Z direction
+        number_of_X_LFRS = int(geometry_data.loc[0, 'number of X LFRS'])  # number of lateral resisting frame in X direction
+        number_of_Z_LFRS = int(geometry_data.loc[0, 'number of Z LFRS'])  # number of lateral resisting frame in Z direction
         # Call function defined in "help_functions.py" to determine the height for each floor level
         floor_height = determine_floor_height(number_of_story, first_story_height, typical_story_height)
         # Store all necessary information into a dictionary named geometry
@@ -174,11 +165,16 @@ class Building(object):
 
         # Determine Fa and Fv coefficient based on site class and Ss and S1 (ASCE 7-10 Table 11.4-1 & 11.4-2)
         # Call function defined in "help_functions.py" to calculate two coefficients: Fa and Fv
-        Fa = determine_Fa_coefficient(elf_parameters_data.loc[0, 'site class'], elf_parameters_data.loc[0, 'Ss'])
-        Fv = determine_Fv_coefficient(elf_parameters_data.loc[0, 'site class'], elf_parameters_data.loc[0, 'S1'])
+        #Fa = determine_Fa_coefficient(elf_parameters_data.loc[0, 'site class'], elf_parameters_data.loc[0, 'Ss'])
+        #Fv = determine_Fv_coefficient(elf_parameters_data.loc[0, 'site class'], elf_parameters_data.loc[0, 'S1'])
         # Determine SMS, SM1, SDS, SD1 using the defined function in "help_functions.py"
-        SMS, SM1, SDS, SD1 = calculate_DBE_acceleration(elf_parameters_data.loc[0, 'Ss'],
-                                                        elf_parameters_data.loc[0, 'S1'], Fa, Fv)
+        #SMS, SM1, SDS, SD1 = calculate_DBE_acceleration(elf_parameters_data.loc[0, 'Ss'],
+        #                                                elf_parameters_data.loc[0, 'S1'], Fa, Fv)
+        SMS = elf_parameters_data.loc[0, 'SMS']
+        SM1 = elf_parameters_data.loc[0, 'SM1']
+        SDS = 2/3*SMS        
+        SD1 = 2/3*SM1
+        
         # Determine Cu using the defined function in "help_functions.py"
         Cu = determine_Cu_coefficient(SD1)
 
@@ -188,14 +184,54 @@ class Building(object):
         upper_period = Cu * approximate_period
 
         # Save all coefficient into the dictionary named elf_parameters
-        self.elf_parameters = {'Ss': elf_parameters_data.loc[0, 'Ss'], 'S1': elf_parameters_data.loc[0, 'S1'],
+        self.elf_parameters = {'SMS': elf_parameters_data.loc[0, 'SMS'], 'SM1': elf_parameters_data.loc[0, 'SM1'],
                                'TL': elf_parameters_data.loc[0, 'TL'], 'Cd': elf_parameters_data.loc[0, 'Cd'],
                                'R': elf_parameters_data.loc[0, 'R'], 'Ie': elf_parameters_data.loc[0, 'Ie'],
-                               'rho': elf_parameters_data.loc[0, 'rho'],
-                               'site class': elf_parameters_data.loc[0, 'site class'],
+                               'rho': elf_parameters_data.loc[0, 'rho'],                               
                                'Ct': elf_parameters_data.loc[0, 'Ct'], 'x': elf_parameters_data.loc[0, 'x'],
-                               'Fa': Fa, 'Fv': Fv, 'SMS': SMS, 'SM1': SM1, 'SDS': SDS, 'SD1': SD1, 'Cu': Cu,
+                               'SDS': SDS, 'SD1': SD1, 'Cu': Cu,
                                'approximate period': approximate_period, 'period': upper_period}
+
+    def read_design_constants(self):
+        """
+        This method is used to read the design constants for this frame
+        
+        """
+        currDir = os.getcwd()
+        os.chdir(self.directory['building data'])
+        from global_variables import SECTION_DATABASE        
+        from global_variables import COLUMN_DATABASE
+        from global_variables import BEAM_DATABASE
+        from global_variables import PERIOD_FOR_DRIFT_LIMIT
+        from global_variables import EXTERIOR_INTERIOR_COLUMN_RATIO
+        from global_variables import BEAM_TO_COLUMN_RATIO
+        from global_variables import IDENTICAL_SIZE_PER_STORY        
+        from global_variables import UPPER_LOWER_COLUMN_Zx
+        from global_variables import RBS_STIFFNESS_FACTOR
+        from global_variables import DRIFT_LIMIT
+        from global_variables import ACCIDENTAL_TORSION
+        os.chdir(currDir)
+                
+        self.SECTION_DATABASE = SECTION_DATABASE
+        self.COLUMN_DATABASE = COLUMN_DATABASE
+        self.BEAM_DATABASE = BEAM_DATABASE
+        self.PERIOD_FOR_DRIFT_LIMIT = PERIOD_FOR_DRIFT_LIMIT
+        self.EXTERIOR_INTERIOR_COLUMN_RATIO = EXTERIOR_INTERIOR_COLUMN_RATIO
+        self.BEAM_TO_COLUMN_RATIO = BEAM_TO_COLUMN_RATIO
+        self.IDENTICAL_SIZE_PER_STORY = IDENTICAL_SIZE_PER_STORY
+        self.UPPER_LOWER_COLUMN_Zx = UPPER_LOWER_COLUMN_Zx
+        self.RBS_STIFFNESS_FACTOR = RBS_STIFFNESS_FACTOR
+        self.DRIFT_LIMIT = DRIFT_LIMIT
+        self.ACCIDENTAL_TORSION = ACCIDENTAL_TORSION
+        
+        from global_variables import yield_stress
+        from global_variables import ultimate_stress
+        from global_variables import elastic_modulus
+        from global_variables import Ry_value
+                
+        self.steel = SteelMaterial(yield_stress=yield_stress, ultimate_stress=ultimate_stress, 
+                                   elastic_modulus=elastic_modulus, Ry_value=Ry_value)  # Unit: ksi
+        
 
     def compute_seismic_force(self):
         """
@@ -208,17 +244,17 @@ class Building(object):
         # Please note that the period for computing the required strength should be bounded by CuTa
         period_for_strength = min(self.elf_parameters['modal period'], self.elf_parameters['period'])
         # The period used for computing story drift is not required to be bounded by CuTa
-        if PERIOD_FOR_DRIFT_LIMIT:
+        if self.PERIOD_FOR_DRIFT_LIMIT:
             period_for_drift = min(self.elf_parameters['modal period'], self.elf_parameters['period'])
         else:
             period_for_drift = self.elf_parameters['modal period']
         # Call function defined in "help_functions.py" to determine the seismic response coefficient
         Cs_for_strength = calculate_Cs_coefficient(self.elf_parameters['SDS'], self.elf_parameters['SD1'],
-                                                   self.elf_parameters['S1'], period_for_strength,
+                                                   period_for_strength,
                                                    self.elf_parameters['TL'], self.elf_parameters['R'],
                                                    self.elf_parameters['Ie'], False)
         Cs_for_drift = calculate_Cs_coefficient(self.elf_parameters['SDS'], self.elf_parameters['SD1'],
-                                                self.elf_parameters['S1'], period_for_drift,
+                                                period_for_drift,
                                                 self.elf_parameters['TL'], self.elf_parameters['R'],
                                                 self.elf_parameters['Ie'], True)
         # Calculate the base shear
@@ -267,13 +303,13 @@ class Building(object):
             beam_depth_list = depth_data.loc[story, 'beam'].split(', ')
             # Find the section size candidates associated with a certain depth specified by user
             for item in range(0, len(interior_column_depth_list)):
-                temp1 = find_section_candidate(interior_column_depth_list[item], COLUMN_DATABASE)
+                temp1 = find_section_candidate(interior_column_depth_list[item], self.COLUMN_DATABASE)
                 temp_interior_column = pd.concat([temp_interior_column, temp1])
             for item in range(0, len(exterior_column_depth_list)):
-                temp2 = find_section_candidate(exterior_column_depth_list[item], COLUMN_DATABASE)
+                temp2 = find_section_candidate(exterior_column_depth_list[item], self.COLUMN_DATABASE)
                 temp_exterior_column = pd.concat([temp_exterior_column, temp2])
             for item in range(0, len(beam_depth_list)):
-                temp3 = find_section_candidate(beam_depth_list[item], BEAM_DATABASE)
+                temp3 = find_section_candidate(beam_depth_list[item], self.BEAM_DATABASE)
                 temp_beam = pd.concat([temp_beam, temp3])
             # Store the section size candidates for each member per story in a dictionary
             # Re-order the Series based on the index (which is further based on descending order of Ix for column
@@ -311,17 +347,17 @@ class Building(object):
             interior_column.append(initial_interior)
             exterior_column.append(initial_exterior)
             # Compute the section property of the interior column size
-            reference_property = search_section_property(initial_interior, SECTION_DATABASE)
+            reference_property = search_section_property(initial_interior, self.SECTION_DATABASE)
             # Determine the beam size based on beam-to-column section modulus ratio
-            beam_size = search_member_size('Zx', reference_property['Zx']*BEAM_TO_COLUMN_RATIO,
+            beam_size = search_member_size('Zx', reference_property['Zx']*self.BEAM_TO_COLUMN_RATIO,
                                            self.element_candidate['beam']['floor level %s' % (story+2)],
-                                           SECTION_DATABASE)
+                                           self.SECTION_DATABASE)
             # Merge initial beam size of each story together
             beam.append(beam_size)
         # Store all initial member sizes into the dictionary (which will be updated using optimization algorithm later)
         self.member_size = {'interior column': interior_column,
                             'exterior column': exterior_column,
-                            'beam': beam}
+                            'beam': beam}        
 
     def read_modal_period(self):
         """
@@ -330,12 +366,15 @@ class Building(object):
         :return: the first mode period stored in self.elf_parameters
         """
         # Change the working directory to the folder where the eigen value analysis results are stored
-        path_modal_period = self.directory['building elastic model'] / 'EigenAnalysis'
+        currDir = os.getcwd()
+        path_modal_period = os.path.join(self.directory['building elastic model'], 'EigenAnalysis')
         os.chdir(path_modal_period)
         # Save the first mode period in elf_parameters
         period = pd.read_csv('Periods.out', header=None)
         self.elf_parameters['modal period'] = np.asscalar((period.iloc[0, 0]))
-
+        
+        # Return to base directory
+        os.chdir(currDir)
 
     def read_story_drift(self):
         """
@@ -344,7 +383,8 @@ class Building(object):
         :return: an [story*1] array which includes the story drifts for each story.
         """
         # Change the working directory to the folder where story drifts are stored
-        path_story_drift = self.directory['building elastic model'] / 'GravityEarthquake' / 'StoryDrifts'
+        path_story_drift = os.path.join(self.directory['building elastic model'], 'GravityEarthquake', 'StoryDrifts')
+        currDir = os.getcwd()
         os.chdir(path_story_drift)
         # Save all story drifts in an array
         story_drift = np.zeros([self.geometry['number of story'], 1])
@@ -354,6 +394,9 @@ class Building(object):
             story_drift[story] = read_data[-1, -1]
         # Assign the story drifts results into class attribute
         self.elastic_response = {'story drift': story_drift}
+        
+        # Return to base directory
+        os.chdir(currDir)
 
     def optimize_member_for_drift(self):
         """
@@ -369,17 +412,17 @@ class Building(object):
                                  self.member_size['interior column'][target_story])
         # Compute the section property of the interior column size
         reference_property = search_section_property(self.member_size['interior column'][target_story],
-                                                     SECTION_DATABASE)
+                                                     self.SECTION_DATABASE)
         # Determine the beam size based on beam-to-column section modulus ratio
-        beam_size = search_member_size('Zx', reference_property['Zx'] * BEAM_TO_COLUMN_RATIO,
+        beam_size = search_member_size('Zx', reference_property['Zx'] * self.BEAM_TO_COLUMN_RATIO,
                                        self.element_candidate['beam']['floor level %s' %(target_story+2)],
-                                       SECTION_DATABASE)
+                                       self.SECTION_DATABASE)
         # "Push" the updated beam size back to the class dictionary
         self.member_size['beam'][target_story] = beam_size
         # Determine the exterior column size based on exterior/interior column moment of inertia ratio
-        exterior_size = search_member_size('Ix', reference_property['Ix'] * EXTERIOR_INTERIOR_COLUMN_RATIO,
+        exterior_size = search_member_size('Ix', reference_property['Ix'] * self.EXTERIOR_INTERIOR_COLUMN_RATIO,
                                            self.element_candidate['exterior column']['story %s' % (target_story+1)],
-                                           SECTION_DATABASE)
+                                           self.SECTION_DATABASE)
         self.member_size['exterior column'][target_story] = exterior_size
 
     def upscale_column(self, target_story, type_column):
@@ -415,8 +458,8 @@ class Building(object):
         # Use deep copy to avoid changing the variables stored in member size
         temp_size = copy.deepcopy(self.member_size)
         # Update beam size (beam size is updated based on descending order of Zx)
-        self.construction_size['beam'] = constructability_helper(temp_size['beam'], IDENTICAL_SIZE_PER_STORY,
-                                                                 self.geometry['number of story'], 'Ix')
+        self.construction_size['beam'] = constructability_helper(temp_size['beam'], self.IDENTICAL_SIZE_PER_STORY,
+                                                                 self.geometry['number of story'], 'Ix', self.SECTION_DATABASE)
         # Column sizes here have not been updated (just directly copy)
         self.construction_size['interior column'] = temp_size['interior column']
         self.construction_size['exterior column'] = temp_size['exterior column']
@@ -431,5 +474,5 @@ class Building(object):
         # Update column sizes based on the sorted Ix
         member_list = ['interior column', 'exterior column']
         for mem in member_list:
-            self.construction_size[mem] = constructability_helper(temp_size[mem], IDENTICAL_SIZE_PER_STORY,
-                                                                  self.geometry['number of story'], 'Ix')
+            self.construction_size[mem] = constructability_helper(temp_size[mem], self.IDENTICAL_SIZE_PER_STORY,
+                                                                  self.geometry['number of story'], 'Ix', self.SECTION_DATABASE)

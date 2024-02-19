@@ -15,11 +15,16 @@
 #                       Load Necessary Packages                          #
 ##########################################################################
 
-import sys
+# import sys
 import time
+import pathlib
+import os
 
 from seismic_design import seismic_design
-from global_variables import base_directory
+#from global_variables import base_directory
+#from global_variables import autoSDA_directory
+base_directory = pathlib.Path(os.getcwd())
+autoSDA_directory = pathlib.Path(os.getcwd())
 
 # Count the starting time of the main program
 start_time = time.time()
@@ -35,11 +40,11 @@ start_time = time.time()
 # ********************* Revision Ends Here *******************************
 
 # ********************* Single Building Case Ends Here *******************
-IDs = [1]
+IDs = [0]
 for id in IDs:
     building_id = 'Building_' + str(id)
     print("Design for Building ID = ", building_id)
-    seismic_design(building_id, base_directory)
+    seismic_design(building_id, base_directory, autoSDA_directory)
 
 # ********************* Single Building Case Ends Here *******************
 

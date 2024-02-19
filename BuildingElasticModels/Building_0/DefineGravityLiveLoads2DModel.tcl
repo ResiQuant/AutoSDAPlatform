@@ -22,7 +22,7 @@ set	LeaningColumnLiveLoadFloor3	450.000000;
 set	LeaningColumnLiveLoadFloor4	450.000000; 
 
 # Assign lateral load values caused by earthquake (kip)
-set	LateralLoad	[list	58.569078	127.066572	199.889973];
+set	LateralLoad	[list	39.046052	84.711048	133.259982];
 
 
 # Define uniform loads on beams

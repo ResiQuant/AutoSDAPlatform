@@ -5,8 +5,6 @@
 import os
 import shutil
 
-from global_variables import ACCIDENTAL_TORSION
-
 # #########################################################################
 #              Generate OpenSees model (write .tcl files)                 #
 # #########################################################################
@@ -46,6 +44,7 @@ class ElasticAnalysis(object):
                                 Otherwise, all load types will be considered.
         """
         # Change the working directory to folder where .tcl files will be saved
+        currDir = os.getcwd()
         if not os.path.exists(building.directory['building elastic model']):
             os.makedirs(building.directory['building elastic model'])
         os.chdir(building.directory['building elastic model'])
@@ -72,6 +71,9 @@ class ElasticAnalysis(object):
 
         # Call method to run OpenSees.exe for performing elastic analysis
         self.run_OpenSees_program()
+        
+        # Return to base folder
+        os.chdir(currDir)
 
     def write_nodes(self, building):
         # Create a .tcl file and write the node information
@@ -442,7 +444,7 @@ class ElasticAnalysis(object):
             for i in range(building.geometry['number of story']):
                 tclfile.write("\t%f"
                               % (building.seismic_force_for_strength['lateral story force'][i] \
-                                 /building.geometry['number of X LFRS'] * ACCIDENTAL_TORSION))
+                                 /building.geometry['number of X LFRS'] * building.ACCIDENTAL_TORSION))
             tclfile.write("];\n\n\n")
 
             # Define the load pattern in OpenSees
@@ -513,7 +515,7 @@ class ElasticAnalysis(object):
             for i in range(building.geometry['number of story']):
                 tclfile.write("\t%f"
                               % (building.seismic_force_for_strength['lateral story force'][i]
-                                 / building.geometry['number of X LFRS'] * ACCIDENTAL_TORSION))
+                                 / building.geometry['number of X LFRS'] * building.ACCIDENTAL_TORSION))
             tclfile.write("];\n\n\n")
 
             # Define the load pattern in OpenSees
@@ -584,7 +586,7 @@ class ElasticAnalysis(object):
             for i in range(building.geometry['number of story']):
                 tclfile.write("\t%f"
                               % (building.seismic_force_for_strength['lateral story force'][i]
-                                 / building.geometry['number of X LFRS'] * ACCIDENTAL_TORSION))
+                                 / building.geometry['number of X LFRS'] * building.ACCIDENTAL_TORSION))
             tclfile.write("];\n\n\n")
 
             # Define the load pattern in OpenSees
@@ -643,7 +645,7 @@ class ElasticAnalysis(object):
             for i in range(building.geometry['number of story']):
                 tclfile.write("\t%f"
                               % (building.seismic_force_for_drift['lateral story force'][i]
-                                 / building.geometry['number of X LFRS'] * ACCIDENTAL_TORSION))
+                                 / building.geometry['number of X LFRS'] * building.ACCIDENTAL_TORSION))
             tclfile.write("];\n\n\n")
 
             # Define the load pattern in OpenSees
@@ -690,14 +692,13 @@ class ElasticAnalysis(object):
         # define a list which includes all baseline files' names
         file_list = ['Database.csv', 'DefineFunctionsAndProcedures.tcl', 'DefineVariables.tcl',
                      'EigenValueAnalysis.tcl', 'Model.tcl', 'PerformLoadsAnalysis.tcl']
-        # Change the working directory to the folder where baseline .tcl files are stored
-        os.chdir(building.directory['baseline files elastic'])
+        
         # Copy all baseline .tcl files to building model directory
-        for file in file_list:
-            target_file = building.directory['building elastic model'] / file
-            shutil.copyfile(file, target_file)
-        # Remember to change the working directory to building model directory
-        os.chdir(building.directory['building elastic model'])
+        for file in file_list:  
+            original_file = os.path.join(building.directory['baseline files elastic'], file)
+            target_file = file
+            shutil.copyfile(original_file, target_file)
+        
         # Revise "Model.tcl" file if we only want to obtain drifts
         # Firstly read all content in "Model.tcl", then revise the content, and store it back to "Model.tcl"
         old_string = '[list EigenValue DeadLoad LiveLoad EarthquakeLoad GravityEarthquake]'
@@ -720,4 +721,6 @@ class ElasticAnalysis(object):
 
     def run_OpenSees_program(self):
         # This method is used to run the "RunModel.bat" file. OpenSees.exe program is thus run.
-        os.system('OpenSees Model.tcl')
+        print(os.getcwd())
+        os.system('C:\SimCenter\OpenSees\OpenSees Model.tcl')
+        #os.system('OpenSees Model.tcl')

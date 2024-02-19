@@ -6,7 +6,7 @@ import numpy as np
 import re
 import sys
 
-from global_variables import SECTION_DATABASE
+# from global_variables import SECTION_DATABASE
 
 
 def determine_Fa_coefficient(site_class, Ss):
@@ -163,14 +163,13 @@ def determine_floor_height(number_of_story, first_story_height, typical_story_he
     return floor_height
 
 
-def calculate_Cs_coefficient(SDS, SD1, S1, T, TL, R, Ie, for_drift):
+def calculate_Cs_coefficient(SDS, SD1, T, TL, R, Ie, for_drift):
     """
     This function is used to calculate the seismic response coefficient based on ASCE 7-10 Section 12.8.1
     Unit: kips, g (gravity constant), second
     Note: All notations for these variables can be found in ASCE 7-10.
     :param SDS: a scalar determined using Equation 11.4-3; output from "calculate_DBE_acceleration" function
     :param SD1: a scalar determined using Equation 11.4-4; output from "calculate_DBE_acceleration" function
-    :param S1: a scalar given in building information (problem statement)
     :param T: building period; a scalar determined using Equation 12.8-1 and Cu;
               implemented in "BuildingInformation" object attribute.
     :param TL: long-period transition
@@ -206,8 +205,8 @@ def calculate_Cs_coefficient(SDS, SD1, S1, T, TL, R, Ie, for_drift):
             Cs = Cs_lower_1
 
     # Equation 12.8-6. if S1 is equal to or greater than 0.6g, Cs shall not be less than the following value
-    if S1 >= 0.6:
-        Cs_lower_2 = 0.5*S1/(R/Ie)
+    if SD1 >= 0.6: # This check is strinctly done with S1 but given that our model input uses SM1 (already affected by soil amplification, we will use SD1 as an approx)
+        Cs_lower_2 = 0.5*SD1/(R/Ie)
         if Cs >= Cs_lower_2:
             pass
         else:
@@ -363,7 +362,7 @@ def extract_weight(size):
     return int(output[0])
 
 
-def constructability_helper(section_size, identical_size_per_story, total_story, sorted_quantity):
+def constructability_helper(section_size, identical_size_per_story, total_story, sorted_quantity, SECTION_DATABASE):
     """
     This function is used to make every adjacent N stories have the same size and ensure that the whole list
     is in a descending order.
@@ -372,6 +371,7 @@ def constructability_helper(section_size, identical_size_per_story, total_story,
     :param total_story: a scalar to denote the total building stories
     :param sorted_quantity：a string to indicate the members are sorted based on which quantity,
            options: 'Ix' or 'Zx'
+    : param SECTION_DATABASE: a DataFrame with all the steel sections available
     :return: a list whose every adjacent N stories have same strings and the whole list is in descending order
     """
     # Determine the number of stories that have the identical member size for constructability

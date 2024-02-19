@@ -19,11 +19,6 @@ from building_information import Building
 from elastic_analysis import ElasticAnalysis
 from elastic_output import ElasticOutput
 
-from global_variables import steel
-from global_variables import UPPER_LOWER_COLUMN_Zx
-from global_variables import RBS_STIFFNESS_FACTOR
-from global_variables import DRIFT_LIMIT
-
 from design_helper import create_column_set
 from design_helper import create_beam_set
 from design_helper import create_connection_set
@@ -34,25 +29,25 @@ from design_helper import save_all_design_results
 ##########################################################################
 
 
-def seismic_design(building_id, base_directory):
+def seismic_design(building_id, base_directory, autoSDA_directory):
     # ************************************************************************
     # ///////////////// Start Seismic Design /////////////////////////////////
     # ************************************************************************
     # Create an instance using "Building" class
-    building_1 = Building(building_id, base_directory)
-
+    building_1 = Building(building_id, base_directory, autoSDA_directory)
 
     # Perform EigenValue Analysis only to obtain the period
     _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=True)
     building_1.read_modal_period()
-    # Compute the seismic story forces based on modal period and CuTa
-    building_1.compute_seismic_force()
 
+    # Compute the seismic story forces based on modal period and CuTa
+    building_1.compute_seismic_force()    
+    
     # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
     _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
 
     # Read elastic analysis drift
-    building_1.read_story_drift()
+    building_1.read_story_drift()    
 
     # ************************************************************************
     # ///////////////// Optimize Member Size for Drift ///////////////////////
@@ -61,14 +56,15 @@ def seismic_design(building_id, base_directory):
     iteration = 0
     # Perform the optimization process
     last_member = copy.deepcopy(building_1.member_size)
-    while np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * RBS_STIFFNESS_FACTOR \
-            <= DRIFT_LIMIT/building_1.elf_parameters['rho']:
+    
+    while np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
+            <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']:
         print("Member size after optimization %i" % iteration)
         print("Exterior column:", building_1.member_size['exterior column'])
         print("Interior column:", building_1.member_size['interior column'])
         print("Beam:", building_1.member_size['beam'])
         print("Current story drifts: (%)")
-        print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * RBS_STIFFNESS_FACTOR * 100)
+        print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
         # Before optimization, record the size in the last step.
         last_member = copy.deepcopy(building_1.member_size)
         # Perform optimization
@@ -87,9 +83,13 @@ def seismic_design(building_id, base_directory):
     # Add a check here: if the program does not go into previous while loop,
     # probably the initial size is not strong enough ==> not necessary to go into following codes
     if iteration == 0:
+        print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
+        print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
+        print(building_1.member_size)
         sys.stderr.write("Initial section size is not strong enough!")
         sys.stderr.write("Please increase initial depth!")
-        sys.exit(99)
+        return 'No design feasible'
+        #sys.exit(99)
 
     # *******************************************************************
     # ///////////////// Check Column Strength ///////////////////////////
@@ -105,7 +105,7 @@ def seismic_design(building_id, base_directory):
     elastic_demand = ElasticOutput(building_1)
     # Check all columns to see whether they have enough strengths
     # Initialize a list to store all column instances
-    column_set, not_feasible_column = create_column_set(building_1, elastic_demand, steel)
+    column_set, not_feasible_column = create_column_set(building_1, elastic_demand, building_1.steel)
 
 
     # *******************************************************************
@@ -128,14 +128,14 @@ def seismic_design(building_id, base_directory):
                 building_1.read_story_drift()
                 elastic_demand = ElasticOutput(building_1)
                 # Re-construct the column objects
-                column_set, not_feasible_column = create_column_set(building_1, elastic_demand, steel)
+                column_set, not_feasible_column = create_column_set(building_1, elastic_demand, building_1.steel)
 
 
     # *******************************************************************
     # ///////////////// Check Beam Strength /////////////////////////////
     # *******************************************************************
     # Initialize a list to store all beam instances
-    beam_set, not_feasible_beam = create_beam_set(building_1, elastic_demand, steel)
+    beam_set, not_feasible_beam = create_beam_set(building_1, elastic_demand, building_1.steel)
 
 
     # *******************************************************************
@@ -155,13 +155,13 @@ def seismic_design(building_id, base_directory):
                 building_1.read_story_drift()
                 elastic_demand = ElasticOutput(building_1)
                 # Re-construct the beam objects
-                beam_set, not_feasible_beam = create_beam_set(building_1, elastic_demand, steel)
+                beam_set, not_feasible_beam = create_beam_set(building_1, elastic_demand, building_1.steel)
 
 
     # ********************************************************************
     # ///////////////// Check Beam-Column Connection /////////////////////
     # ********************************************************************
-    connection_set, not_feasible_connection = create_connection_set(building_1, column_set, beam_set, steel)
+    connection_set, not_feasible_connection = create_connection_set(building_1, column_set, beam_set, building_1.steel)
 
     # ********************************************************************
     # ///////// Revise Member to Satisfy Connection Requirement //////////
@@ -186,11 +186,11 @@ def seismic_design(building_id, base_directory):
                 building_1.read_story_drift()
                 elastic_demand = ElasticOutput(building_1)
                 # Re-construct the beam objects
-                beam_set, _ = create_beam_set(building_1, elastic_demand, steel)
+                beam_set, _ = create_beam_set(building_1, elastic_demand, building_1.steel)
                 # Re-construct the column objects
-                column_set, _ = create_column_set(building_1, elastic_demand, steel)
+                column_set, _ = create_column_set(building_1, elastic_demand, building_1.steel)
                 # Re-construct the connection objects
-                connection_set, _ = create_connection_set(building_1, column_set, beam_set, steel)
+                connection_set, _ = create_connection_set(building_1, column_set, beam_set, building_1.steel)
             # For connection not satisfy the strong-column-weak beam -> upscale the column
             while not connection_set[story][connection_no].is_feasible['SCWB']:
                 # Not feasible connection -> go into loop
@@ -203,7 +203,7 @@ def seismic_design(building_id, base_directory):
                 # lower column. If that's the case, we should pick up the smaller upper column to upscale.
                 else:
                     if (column_set[story + 1][connection_no].section['Zx']
-                            < UPPER_LOWER_COLUMN_Zx * column_set[story][connection_no].section['Zx']):
+                            < building_1.UPPER_LOWER_COLUMN_Zx * column_set[story][connection_no].section['Zx']):
                         target_story = story + 1
                     else:
                         target_story = story
@@ -222,11 +222,11 @@ def seismic_design(building_id, base_directory):
                 building_1.read_story_drift()
                 elastic_demand = ElasticOutput(building_1)
                 # Re-construct the column objects since the demands are updated and columns are adjusted
-                column_set, _ = create_column_set(building_1, elastic_demand, steel)
+                column_set, _ = create_column_set(building_1, elastic_demand, building_1.steel)
                 # Re-construct the beam objects
-                beam_set, _ = create_beam_set(building_1, elastic_demand, steel)
+                beam_set, _ = create_beam_set(building_1, elastic_demand, building_1.steel)
                 # Re-construct the connection-objects
-                connection_set, _ = create_connection_set(building_1, column_set, beam_set, steel)
+                connection_set, _ = create_connection_set(building_1, column_set, beam_set, building_1.steel)
 
 
     # ********************************************************************
@@ -250,10 +250,10 @@ def seismic_design(building_id, base_directory):
     elastic_demand_2 = ElasticOutput(building_2)
 
     # Construct new beam objects after considering constructability
-    construction_beam_set, not_feasible_beam = create_beam_set(building_2, elastic_demand_2, steel)
+    construction_beam_set, not_feasible_beam = create_beam_set(building_2, elastic_demand_2, building_2.steel)
 
     # Construct new column objects after considering constructability
-    construction_column_set, not_feasible_column = create_column_set(building_2, elastic_demand_2, steel)
+    construction_column_set, not_feasible_column = create_column_set(building_2, elastic_demand_2, building_2.steel)
 
 
     # ********************************************************************
@@ -261,7 +261,7 @@ def seismic_design(building_id, base_directory):
     # ********************************************************************
 
     construction_connection_set, not_feasible_construction_connection = \
-        create_connection_set(building_2, construction_column_set, construction_beam_set, steel)
+        create_connection_set(building_2, construction_column_set, construction_beam_set, building_2.steel)
 
     # Revise column sizes for new construction connection because of SCWB
     for story in range(building_2.geometry['number of story']):
@@ -284,11 +284,11 @@ def seismic_design(building_id, base_directory):
                 building_2.read_story_drift()
                 elastic_demand_2 = ElasticOutput(building_2)
                 # Re-construct the beam objects
-                construction_beam_set, _ = create_beam_set(building_2, elastic_demand_2, steel)
+                construction_beam_set, _ = create_beam_set(building_2, elastic_demand_2, building_2.steel)
                 # Re-construct the column objects
-                construction_column_set, _ = create_column_set(building_2, elastic_demand_2, steel)
+                construction_column_set, _ = create_column_set(building_2, elastic_demand_2, building_2.steel)
                 # Re-construct the connection objects
-                construction_connection_set, _ = create_connection_set(building_2, elastic_demand_2, steel)
+                construction_connection_set, _ = create_connection_set(building_2, elastic_demand_2, building_2.steel)
             # For connection not satisfy the strong-column-weak beam -> upscale the column
             while not construction_connection_set[story][connection_no].is_feasible['SCWB']:
                 # Not feasible connection -> go into loop
@@ -301,7 +301,7 @@ def seismic_design(building_id, base_directory):
                 # column. If that's the case, we should pick up the smaller upper column to upscale.
                 else:
                     if (column_set[story + 1][connection_no].section['Zx']
-                            < UPPER_LOWER_COLUMN_Zx * column_set[story][connection_no].section['Zx']):
+                            < building_2.UPPER_LOWER_COLUMN_Zx * column_set[story][connection_no].section['Zx']):
                         target_story = story + 1
                     else:
                         target_story = story
@@ -320,12 +320,12 @@ def seismic_design(building_id, base_directory):
                 building_2.read_story_drift()
                 elastic_demand_2 = ElasticOutput(building_2)
                 # Re-construct the column objects
-                construction_column_set, _ = create_column_set(building_2, elastic_demand_2, steel)
+                construction_column_set, _ = create_column_set(building_2, elastic_demand_2, building_2.steel)
                 # Re-construct the beam objects
-                construction_beam_set, _ = create_beam_set(building_2, elastic_demand_2, steel)
+                construction_beam_set, _ = create_beam_set(building_2, elastic_demand_2, building_2.steel)
                 # Re-construct the connection objects
                 construction_connection_set, _ = \
-                    create_connection_set(building_2, construction_column_set, construction_beam_set, steel)
+                    create_connection_set(building_2, construction_column_set, construction_beam_set, building_2.steel)
 
 
     # ********************************************************************
@@ -356,10 +356,10 @@ def seismic_design(building_id, base_directory):
     elastic_demand_3 = ElasticOutput(building_3)
 
     # Re-create column, beam, and connection objects after adjusting the column
-    construction_column_set, not_feasible_construction_column = create_column_set(building_3, elastic_demand_3, steel)
-    construction_beam_set, not_feasible_construction_beam = create_beam_set(building_3, elastic_demand_3, steel)
+    construction_column_set, not_feasible_construction_column = create_column_set(building_3, elastic_demand_3, building_3.steel)
+    construction_beam_set, not_feasible_construction_beam = create_beam_set(building_3, elastic_demand_3, building_3.steel)
     construction_connection_set, not_feasible_construction_connection = \
-        create_connection_set(building_3, construction_column_set, construction_beam_set, steel)
+        create_connection_set(building_3, construction_column_set, construction_beam_set, building_3.steel)
 
 
     # ********************************************************************
@@ -377,9 +377,7 @@ def seismic_design(building_id, base_directory):
     # building_3: construction design results
 
     # Change the working directory to building data
-    os.chdir(building_1.directory['building data'])
-
-    # Change the working directory to building data
+    currDir = os.getcwd()
     os.chdir(building_1.directory['building data'])
 
     save_all_design_results(building_1, column_set, beam_set, connection_set, False)
@@ -387,4 +385,6 @@ def seismic_design(building_id, base_directory):
                             True)
 
     # Go back to base directory
-    os.chdir(base_directory)
+    os.chdir(currDir)
+    
+    return 'Feasible design found'

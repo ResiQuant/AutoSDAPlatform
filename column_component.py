@@ -7,7 +7,7 @@ import numpy as np
 from scipy import interpolate
 
 from help_functions import search_section_property
-from global_variables import SECTION_DATABASE
+#from global_variables import SECTION_DATABASE
 
 # #########################################################################
 #                           Define a class of column                      #
@@ -22,7 +22,7 @@ class Column(object):
     (4) Column flag, an integer with value of zero or nonzero. If it's zero, the column is feasible.
     """
 
-    def __init__(self, section_size, axial_demand, shear_demand, moment_demand_bot, moment_demand_top, Lx, Ly, steel):
+    def __init__(self, section_size, axial_demand, shear_demand, moment_demand_bot, moment_demand_top, Lx, Ly, steel, SECTION_DATABASE):
         """
         This function initializes the attributes of class of column.
         :param section_size: a string which specifies the size for column.

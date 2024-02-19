@@ -24,7 +24,7 @@ from help_functions import extract_weight
 #           Open the section database and store it as a global variable   #
 # #########################################################################
 
-from global_variables import STRONG_COLUMN_WEAK_BEAM_RATIO
+# from global_variables import STRONG_COLUMN_WEAK_BEAM_RATIO
 
 # #########################################################################
 #                           Define a class of beam                        #
@@ -300,7 +300,7 @@ class Connection(object):
             sys.stderr.write('Error: wrong type of connection specified!\nNo such keyword for connection exists!\n')
             sys.exit(2)
 
-    def check_column_beam_relationships(self, connection_type, steel, left_beam, right_beam, top_column, bottom_column):
+    def check_column_beam_relationships(self, connection_type, steel, left_beam, right_beam, top_column, bottom_column, STRONG_COLUMN_WEAK_BEAM_RATIO):
         """
         This method examines whether the "strong-column-weak-beam" criteria is satisfied.
         (step 11 in ANSI Section 5.8)

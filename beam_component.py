@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from global_variables import SECTION_DATABASE
+# from global_variables import SECTION_DATABASE
 from help_functions import search_section_property
 
 # #########################################################################
@@ -20,7 +20,7 @@ class Beam(object):
     (4) Beam flag, a boolean variable with True or False. If it is True, the beam is feasible.
     """
 
-    def __init__(self, section_size, length, shear_demand, moment_demand_left, moment_demand_right, steel):
+    def __init__(self, section_size, length, shear_demand, moment_demand_left, moment_demand_right, steel, SECTION_DATABASE):
         """
         This function initializes the attributes of the beam class.
         :param section_size: a string specifying the section size for the beam.
