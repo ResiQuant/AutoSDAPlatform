@@ -8,10 +8,6 @@ fix	311	1	1	1;
 fix	411	1	1	1; 
 fix	511	1	1	1; 
 fix	611	1	1	1; 
-fix	711	1	1	1; 
-fix	811	1	1	1; 
-fix	911	1	1	1; 
-fix	1011	1	1	1; 
-fix	10111	1	1	0; 
+fix	1071	1	1	0; 
 
 # puts "All column base fixities have been defined"

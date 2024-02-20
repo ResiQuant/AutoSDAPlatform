@@ -4,6 +4,7 @@
 
 import os
 import shutil
+import time
 
 # #########################################################################
 #              Generate OpenSees model (write .tcl files)                 #
@@ -731,5 +732,6 @@ class ElasticAnalysis(object):
         
         os.chdir(os.path.join(building.directory['building elastic model']))        
         os.system('C:\SimCenter\OpenSees\OpenSees Model.tcl')
+        time.sleep(1) # add delay to allow creation of files before trying to fetch them
         os.chdir(building.base_directory)
                   

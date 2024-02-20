@@ -53,6 +53,7 @@ class Building(object):
         self.UID = building_id
         self.base_directory = base_directory
         self.autoSDA_directory = autoSDA_directory
+        self.g = 386 # gravity constant in in/s2
 
         # Initialize the attributes for the building instance (will be assigned values in the class methods)
         self.directory = {}
@@ -367,7 +368,32 @@ class Building(object):
         # Save the first mode period in elf_parameters
         period = pd.read_csv(os.path.join(path_modal_period, 'Periods.out'), header=None)
         self.elf_parameters['modal period'] = np.asscalar((period.iloc[0, 0]))
-
+        
+    def calculate_modal_period_Rayleigh (self):
+        """
+        This method is used to calculate the period of the frame using the 
+        current drifts and the Raleight formula        
+        :return: the first mode period stored in self.elf_parameters
+        """
+        
+        # Assemble story height and weight vectors
+        storyHgt = np.zeros(self.geometry['number of story'])
+        weight = self.gravity_loads['floor weight'] / self.geometry['number of X LFRS']
+        for i in range(self.geometry['number of story']):            
+            if i == 0:
+                storyHgt[i] = self.geometry['first story height']*12 # ft to in                
+            else:
+                storyHgt[i] = self.geometry['typical story height']*12 # ft to in
+        
+        # Calculate lateral disp per floor from drifts
+        lateral_disp = np.cumsum(self.elastic_response['story drift'].T*storyHgt)
+        
+        # Calculate period using Rayleigh equation
+        lateral_force = self.seismic_force_for_drift['lateral story force'] / self.geometry['number of X LFRS'] * self.ACCIDENTAL_TORSION
+        period = 2*np.pi*np.sqrt(np.sum(weight * lateral_disp**2) / 
+                            (self.g * np.sum(lateral_force * lateral_disp)))
+        
+        self.elf_parameters['modal period'] = np.asscalar(period)
 
     def read_story_drift(self):
         """
@@ -386,6 +412,102 @@ class Building(object):
             story_drift[story] = read_data[-1, -1]
         # Assign the story drifts results into class attribute
         self.elastic_response = {'story drift': story_drift}
+        
+        
+    def calculate_story_drift_Wilbur(self):
+        """
+        This method is used to calculate approximately the story drifts using the Wilbur method
+        The load case for story drift is the combination of dead, live, and earthquake loads.
+        :return: an [story*1] array which includes the story drifts for each story.
+        """
+        
+        # Assemble column inertia array
+        ICol   = np.zeros([self.geometry['number of story'], self.geometry['number of X bay'] + 1]) 
+        for i in range(self.geometry['number of story']):
+            
+            if self.geometry['number of X bay'] == 1:
+                # single bay frame only has exterior columns
+                section = self.member_size['exterior column'][i]
+                section_I = self.COLUMN_DATABASE['Ix'][self.COLUMN_DATABASE['section size'] == section].to_numpy()[0]
+                ICol[i, :] = np.ones(2)*section_I
+            else:
+                # 2 or more bays
+                section = self.member_size['exterior column'][i]
+                section_I = self.COLUMN_DATABASE['Ix'][self.COLUMN_DATABASE['section size'] == section].to_numpy()[0]
+                ICol[i,  0] = section_I
+                ICol[i, -1] = section_I
+                
+                section = self.member_size['interior column'][i]
+                section_I = self.COLUMN_DATABASE['Ix'][self.COLUMN_DATABASE['section size'] == section].to_numpy()[0]
+                ICol[i, 1:-1] = np.ones(self.geometry['number of X bay'] - 1)*section_I
+        
+        # Assemble beam inertia array
+        IzBeam = np.zeros([self.geometry['number of story'], self.geometry['number of X bay']])   
+        for i in range(self.geometry['number of story']):
+            
+            if self.geometry['number of X bay'] == 1:
+                # single bay frame only has exterior columns
+                section = self.member_size['beam'][i]
+                section_I = self.COLUMN_DATABASE['Ix'][self.COLUMN_DATABASE['section size'] == section].to_numpy()[0]
+                IzBeam[i, 0] = section_I
+            else:
+                # 2 or more bays
+                section = self.member_size['beam'][i]
+                section_I = self.COLUMN_DATABASE['Ix'][self.COLUMN_DATABASE['section size'] == section].to_numpy()[0]
+                IzBeam[i, :] = np.ones(self.geometry['number of X bay'])*section_I
+        
+        # Assemble beam length array
+        lengthBeam = np.zeros([self.geometry['number of story'], self.geometry['number of X bay']]);
+        for i in range(self.geometry['number of story']):
+            for j in range(self.geometry['number of X bay']):
+                lengthBeam[i, j] = self.geometry['X bay width']*12 # ft to in
+        
+        # Assemble column length array
+        Lcol = np.zeros([self.geometry['number of story'], self.geometry['number of X bay'] + 1]);
+        for i in range(self.geometry['number of story']):            
+            for j in range(self.geometry['number of X bay'] + 1):
+                if i == 0:
+                    Lcol[i, j] = self.geometry['first story height']*12 # ft to in
+                else:
+                    Lcol[i, j] = self.geometry['typical story height']*12 # ft to in
+        
+        # Get story heights and steel young modulus
+        storyHgt = Lcol[:,0]
+        Es = self.steel.E
+        
+        # Calculate floor stiffness with Wilbut formulas for frames
+        R = np.zeros(self.geometry['number of story'])
+        Kc = ICol/Lcol;
+        Kb = IzBeam/lengthBeam;
+        R[0] = 48*Es/(storyHgt[0]*(4*storyHgt[0]/np.sum(Kc[0,:]) + 
+                                   (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) +
+                                                              np.sum(Kc[0,:])/12)))
+        if self.geometry['number of story'] == 2:
+            R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
+                                             (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
+                                             storyHgt[-1]/np.sum(Kb[-1,:])))
+        elif self.geometry['number of story'] > 2:
+            R[1] = 48*Es/(storyHgt[1]*(4*storyHgt[1]/np.sum(Kc[1,:]) + 
+                                       (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) + 
+                                                                  np.sum(Kc[0,:])/12) + 
+                                       (storyHgt[1]+storyHgt[2])/(np.sum(Kb[1,:]))))
+            for n in range(2, self.geometry['number of story'] - 1):
+                m = n - 1
+                o = n + 1
+                R[n] = 48*Es/(storyHgt[n]*(4*storyHgt[n]/np.sum(Kc[n,:]) + 
+                                           (storyHgt[m]+storyHgt[n])/np.sum(Kb[m,:]) + 
+                                           (storyHgt[n]+storyHgt[o])/np.sum(Kb[n,:])))
+            
+            R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
+                                         (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
+                                         storyHgt[-1]/np.sum(Kb[-1,:])))
+        
+        # Calculate drift
+        V_story = self.seismic_force_for_drift['story shear'].T / self.geometry['number of X LFRS'] * self.ACCIDENTAL_TORSION
+        story_drift = (V_story/R)/storyHgt
+        
+        # Assign the story drifts results into class attribute
+        self.elastic_response = {'story drift': story_drift.T}
         
 
     def optimize_member_for_drift(self):

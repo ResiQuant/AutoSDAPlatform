@@ -47,10 +47,53 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
 
     # Read elastic analysis drift
-    building_1.read_story_drift()    
+    building_1.read_story_drift()
+
 
     # ************************************************************************
-    # ///////////////// Optimize Member Size for Drift ///////////////////////
+    # ///////// Optimize Member Size for Drift with Wilbur method ////////////
+    # ************************************************************************
+    # Much more efficient way to get to an initial set of section sizes than  
+    # running OpenSees at every iteration
+    
+    # Define iteration index denoting how many iteration it has be performed
+    iteration = 0
+    # Perform the optimization process
+    last_member = copy.deepcopy(building_1.member_size)
+    
+    while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
+            <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):
+        
+        # Before optimization, record the size in the last step.
+        last_member = copy.deepcopy(building_1.member_size)
+        
+        # Perform optimization
+        building_1.optimize_member_for_drift()
+        
+        # Update the design period and thus the design seismic forces
+        # Calculate drift profile with Wilbur method for current sections and loads
+        building_1.calculate_story_drift_Wilbur()
+        
+        # Recalculate the period with Raleigh method and estimated drifts
+        building_1.calculate_modal_period_Rayleigh()
+        building_1.compute_seismic_force()
+        
+        # Calculate drift profile with Wilbur method for current sections and loads
+        building_1.calculate_story_drift_Wilbur()
+
+        iteration = iteration + 1
+    # Assign the last member size to building instance
+    building_1.member_size = copy.deepcopy(last_member)
+    building_1.calculate_story_drift_Wilbur()
+    print("Wilbur story drifts: (%)")
+    print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)        
+            
+    # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
+    _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
+
+    
+    # ************************************************************************
+    # /////////// Optimize Member Size for Drift with OpenSees ///////////////
     # ************************************************************************
     # Define iteration index denoting how many iteration it has be performed
     iteration = 0
@@ -65,14 +108,18 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         print("Beam:", building_1.member_size['beam'])
         print("Current story drifts: (%)")
         print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
+        
         # Before optimization, record the size in the last step.
         last_member = copy.deepcopy(building_1.member_size)
+        
         # Perform optimization
         building_1.optimize_member_for_drift()
+        
         # Update the design period and thus the design seismic forces
         _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=True)
         building_1.read_modal_period()
         building_1.compute_seismic_force()
+        
         # Update the design story drifts
         _ = ElasticAnalysis(building_1, for_drift_only=True, for_period_only=False)
         building_1.read_story_drift()
@@ -100,6 +147,9 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         
         return 'No design feasible'
         #sys.exit(99)
+    
+    elif os.path.isfile(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt')):
+            os.remove(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt'))
 
     # *******************************************************************
     # ///////////////// Check Column Strength ///////////////////////////
@@ -389,7 +439,5 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     save_all_design_results(building_1, column_set, beam_set, connection_set, False)
     save_all_design_results(building_3, construction_column_set, construction_beam_set, construction_connection_set,
                             True)
-    if os.path.isfile(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt')):
-        os.remove(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt'))
     
     return 'Feasible design found'
