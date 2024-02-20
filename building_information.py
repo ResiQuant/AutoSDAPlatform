@@ -19,6 +19,7 @@ from help_functions import find_section_candidate
 from help_functions import search_member_size
 from help_functions import search_section_property
 from help_functions import decrease_member_size
+from help_functions import select_candidate_story
 from help_functions import increase_member_size
 from help_functions import constructability_helper
 
@@ -65,6 +66,7 @@ class Building(object):
         self.member_size = {}
         self.elastic_response = {}
         self.construction_size = {}
+        self.continue_drift_opt_flag = True
 
         # Call defined methods to achieve the goal of the class
         self.define_directory()
@@ -213,6 +215,7 @@ class Building(object):
         self.ultimate_stress = design_constants['ultimate_stress'].iloc[0]
         self.elastic_modulus = design_constants['elastic_modulus'].iloc[0]
         self.Ry_value = design_constants['Ry_value'].iloc[0]
+        self.min_col_index_acceptable = design_constants['min_col_index_acceptable'].iloc[0]
         
         # Load: SECTION_DATABASE (a panda dataframe read from .csv file) (All sizes)
         self.SECTION_DATABASE = pd.read_csv(section_database_path, header=0)
@@ -390,28 +393,33 @@ class Building(object):
         This method is used to decrease the member size such that the design is most economic.
         :return: update self.member_size
         """
-        # Find the story which has the smallest drift
-        target_story = np.where(self.elastic_response['story drift'] ==
-                                np.min(self.elastic_response['story drift']))[0][0]
+        # Select candidate story        
+        target_story, continue_flag = select_candidate_story(self.element_candidate['interior column'],
+                                 self.member_size['interior column'],
+                                 self.elastic_response['story drift'], self.min_col_index_acceptable)
+        self.continue_drift_opt_flag = continue_flag
         
-        # Update the interior column size in target story
-        self.member_size['interior column'][target_story] = \
-            decrease_member_size(self.element_candidate['interior column']['story %s' % (target_story+1)],
-                                 self.member_size['interior column'][target_story])
-        # Compute the section property of the interior column size
-        reference_property = search_section_property(self.member_size['interior column'][target_story],
-                                                     self.SECTION_DATABASE)
-        # Determine the beam size based on beam-to-column section modulus ratio
-        beam_size = search_member_size('Zx', reference_property['Zx'] * self.BEAM_TO_COLUMN_RATIO,
-                                       self.element_candidate['beam']['floor level %s' %(target_story+2)],
-                                       self.SECTION_DATABASE)
-        # "Push" the updated beam size back to the class dictionary
-        self.member_size['beam'][target_story] = beam_size
-        # Determine the exterior column size based on exterior/interior column moment of inertia ratio
-        exterior_size = search_member_size('Ix', reference_property['Ix'] * self.EXTERIOR_INTERIOR_COLUMN_RATIO,
-                                           self.element_candidate['exterior column']['story %s' % (target_story+1)],
+        # Continue reducing size if at least one story is available for optimization
+        if self.continue_drift_opt_flag == True:
+            # Update the interior column size in target story
+            self.member_size['interior column'][target_story] = \
+                decrease_member_size(self.element_candidate['interior column']['story %s' % (target_story+1)],
+                                     self.member_size['interior column'][target_story], self.min_col_index_acceptable)
+                
+            # Compute the section property of the interior column size
+            reference_property = search_section_property(self.member_size['interior column'][target_story],
+                                                         self.SECTION_DATABASE)
+            # Determine the beam size based on beam-to-column section modulus ratio
+            beam_size = search_member_size('Zx', reference_property['Zx'] * self.BEAM_TO_COLUMN_RATIO,
+                                           self.element_candidate['beam']['floor level %s' %(target_story+2)],
                                            self.SECTION_DATABASE)
-        self.member_size['exterior column'][target_story] = exterior_size
+            # "Push" the updated beam size back to the class dictionary
+            self.member_size['beam'][target_story] = beam_size
+            # Determine the exterior column size based on exterior/interior column moment of inertia ratio
+            exterior_size = search_member_size('Ix', reference_property['Ix'] * self.EXTERIOR_INTERIOR_COLUMN_RATIO,
+                                               self.element_candidate['exterior column']['story %s' % (target_story+1)],
+                                               self.SECTION_DATABASE)
+            self.member_size['exterior column'][target_story] = exterior_size
 
     def upscale_column(self, target_story, type_column):
         """

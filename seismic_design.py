@@ -57,8 +57,8 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # Perform the optimization process
     last_member = copy.deepcopy(building_1.member_size)
     
-    while np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
-            <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']:
+    while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
+            <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):
         print("Member size after optimization %i" % iteration)
         print("Exterior column:", building_1.member_size['exterior column'])
         print("Interior column:", building_1.member_size['interior column'])
@@ -80,14 +80,24 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         iteration = iteration + 1
     # Assign the last member size to building instance
     building_1.member_size = copy.deepcopy(last_member)
+    
     # Add a check here: if the program does not go into previous while loop,
-    # probably the initial size is not strong enough ==> not necessary to go into following codes
+    # probably the initial size is not strong enough ==> not necessary to go into following codes    
     if iteration == 0:
         print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
         print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
         print(building_1.member_size)
         sys.stderr.write("Initial section size is not strong enough!")
         sys.stderr.write("Please increase initial depth!")
+        
+        # Create a .tcl file to write earthquake load
+        with open(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt'), 'w') as txtfile:
+            txtfile.write('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
+            txtfile.write('\nDRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
+            txtfile.write('\nInterior columns: ' + str(building_1.member_size['interior column']))
+            txtfile.write('\nExterior columns: ' + str(building_1.member_size['exterior column']))
+            txtfile.write('\nBeams:            ' + str(building_1.member_size['beam']))
+        
         return 'No design feasible'
         #sys.exit(99)
 
@@ -379,5 +389,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     save_all_design_results(building_1, column_set, beam_set, connection_set, False)
     save_all_design_results(building_3, construction_column_set, construction_beam_set, construction_connection_set,
                             True)
+    if os.path.isfile(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt')):
+        os.remove(os.path.join(building_1.directory['building data'], 'NOT_FEASIBLE_DESIGN.txt'))
     
     return 'Feasible design found'

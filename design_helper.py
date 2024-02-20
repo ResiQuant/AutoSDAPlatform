@@ -154,6 +154,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  right_beam=beam_set[story][connection_no],
                                                  top_column=None,
                                                  bottom_column=column_set[story][connection_no])
+                    
             one_story_connection.append(temp_connection)
             if not temp_connection.check_flag():
                 sys.stderr.write('connection_%s%s is not feasible!!!\n' % (story, connection_no))

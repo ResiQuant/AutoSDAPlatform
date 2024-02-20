@@ -323,20 +323,67 @@ def search_section_property(target_size, section_database):
         sys.exit(1)
 
 
-def decrease_member_size(candidate, current_size):
+def decrease_member_size(candidate, current_size, min_index_acceptable):
     """
     This function is used to decrease the member size one step downward
     :param candidate: a list of strings which defines the possible sizes
     :param current_size: a string which defines current member size
+    :param min_index_acceptable: minimum index of the section pool allowed
     :return: optimized_size: a string which defines the member size after decrease
     """
     # Find the index of the current section size in candidate pool and move it to the next one
     candidate_pool_index = candidate.index(current_size)
-    if candidate_pool_index + 1 > len(candidate):
+    if candidate_pool_index + 1 >= len(candidate) - min_index_acceptable:
         # This means the smallest candidate still cannot make design drift close to drift limit,
         # which further means the smallest section candidate is too large.
         sys.stderr.write('The lower bound for depth initialization is too large!\n')
-    return candidate[candidate_pool_index + 1]
+        
+    # This can happen in medium to small seismic areas. We use the fourth 
+    # lowest size as the default to make sure we don't start with a column that 
+    # is too small and then get it up-scaled too much to fulfill SCWB ratios
+    return candidate[np.min([candidate_pool_index + 1, len(candidate) - min_index_acceptable])]
+
+def select_candidate_story(candidate, current_size, story_drift, min_index_acceptable):
+    """
+    This function selects the target story to decrease the section sizes as the 
+    story with the smallest drift that still has smaller members to reduce the
+    size to
+    :param candidate: a dict of list per story which defines the possible sizes
+    :param current_size: a dict of list per story which defines current member size
+    :param story_drift: a list of the current building drifts per story
+    :param min_index_acceptable: minimum index of the section pool allowed
+    :return: target_story: index of the target story
+    :return: continue_flag: bool that indicates if all stories already have the 
+                            minimun section possible
+
+    """
+    feasible_target_story = False
+    continue_flag = True
+    
+    while feasible_target_story == False:
+        # Find the story which has the smallest drift
+        target_story = np.where(story_drift == np.min(story_drift))[0][0]
+                                
+        # Check that story has smaller section sizes available
+        candidate_pool_index = candidate['story %s' % (target_story+1)].index(current_size[target_story])
+        if candidate_pool_index + 1 >= len(candidate['story %s' % (target_story+1)]) - min_index_acceptable:
+            # this story already has the lowest section possible so increase the 
+            # drift to make the next story with the smaller drift the target
+            story_drift[target_story] = 100
+        else:
+            feasible_target_story = True
+        
+        # Check that at least one story is suitable to decrease section
+        if np.min(story_drift) == 100:
+            continue_flag = False
+            break        
+    
+    if np.max(story_drift) == 100:
+        print('\nTARGET STORY = '+str(target_story))        
+        print('\nCONTINUE FLAG = '+str(continue_flag))
+        print(story_drift)
+        
+    return target_story, continue_flag
 
 
 def extract_depth(size):
