@@ -731,7 +731,7 @@ class ElasticAnalysis(object):
         # os.system("C:\SimCenter\OpenSees\OpenSees " + model_path)
         
         os.chdir(os.path.join(building.directory['building elastic model']))        
-        os.system('C:\SimCenter\OpenSees\OpenSees Model.tcl')
+        os.system("C:/SimCenter/OpenSees/OpenSees3.2.2/bin/OpenSees Model.tcl")
         time.sleep(1) # add delay to allow creation of files before trying to fetch them
         os.chdir(building.base_directory)
                   

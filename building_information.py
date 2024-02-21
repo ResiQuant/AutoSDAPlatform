@@ -367,7 +367,7 @@ class Building(object):
         path_modal_period = os.path.join(self.directory['building elastic model'], 'EigenAnalysis')
         # Save the first mode period in elf_parameters
         period = pd.read_csv(os.path.join(path_modal_period, 'Periods.out'), header=None)
-        self.elf_parameters['modal period'] = np.asscalar((period.iloc[0, 0]))
+        self.elf_parameters['modal period'] = float(period.iloc[0, 0])
         
     def calculate_modal_period_Rayleigh (self):
         """
@@ -393,7 +393,7 @@ class Building(object):
         period = 2*np.pi*np.sqrt(np.sum(weight * lateral_disp**2) / 
                             (self.g * np.sum(lateral_force * lateral_disp)))
         
-        self.elf_parameters['modal period'] = np.asscalar(period)
+        self.elf_parameters['modal period'] = float(period)
 
     def read_story_drift(self):
         """
@@ -477,11 +477,16 @@ class Building(object):
         
         # Calculate floor stiffness with Wilbut formulas for frames
         R = np.zeros(self.geometry['number of story'])
-        Kc = ICol/Lcol;
-        Kb = IzBeam/lengthBeam;
-        R[0] = 48*Es/(storyHgt[0]*(4*storyHgt[0]/np.sum(Kc[0,:]) + 
-                                   (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) +
-                                                              np.sum(Kc[0,:])/12)))
+        Kc = ICol/Lcol
+        Kb = IzBeam/lengthBeam
+        if self.geometry['number of story'] > 1:
+            R[0] = 48*Es/(storyHgt[0]*(4*storyHgt[0]/np.sum(Kc[0,:]) + 
+                                    (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) +
+                                                                np.sum(Kc[0,:])/12)))
+        else:
+            R[0] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
+                                         storyHgt[-1]/np.sum(Kb[-1,:])))
+    
         if self.geometry['number of story'] == 2:
             R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
                                              (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
