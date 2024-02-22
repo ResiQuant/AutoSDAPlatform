@@ -90,7 +90,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
             
     # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
     _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
-
+    building_1.read_story_drift()
     
     # ************************************************************************
     # /////////// Optimize Member Size for Drift with OpenSees ///////////////

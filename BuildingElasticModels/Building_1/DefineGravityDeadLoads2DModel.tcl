@@ -3,22 +3,18 @@
 
 # Assign uniform beam dead load values (kip/inch)
 set	BeamDeadLoadFloor2	0.174167; 
-set	BeamDeadLoadFloor3	0.220000; 
 
 # Assign uniform beam live load values (kip/inch)
 set	BeamLiveLoadFloor2	0.073333; 
-set	BeamLiveLoadFloor3	0.110000; 
 
 # Assign point dead load values on leaning column: kip
 set	LeaningColumnDeadLoadFloor2	507.041667; 
-set	LeaningColumnDeadLoadFloor3	586.500000; 
 
 # Assign point live load values on leaning column (kip)
 set	LeaningColumnLiveLoadFloor2	185.733333; 
-set	LeaningColumnLiveLoadFloor3	278.600000; 
 
 # Assign lateral load values caused by earthquake (kip)
-set	LateralLoad	[list	118.289938	256.920557];
+set	LateralLoad	[list	171.335425];
 
 
 # Define uniform loads on beams
@@ -34,18 +30,10 @@ eleLoad	-ele	2321421	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor2];
 eleLoad	-ele	2421521	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor2]; 
 eleLoad	-ele	2521621	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor2]; 
 
-# Level3
-eleLoad	-ele	2131231	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor3]; 
-eleLoad	-ele	2231331	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor3]; 
-eleLoad	-ele	2331431	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor3]; 
-eleLoad	-ele	2431531	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor3]; 
-eleLoad	-ele	2531631	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor3]; 
-
 
 
 # Define point loads on leaning column
 load	1072	0	[expr -1*$LeaningColumnDeadLoadFloor2]	0; 
-load	1073	0	[expr -1*$LeaningColumnDeadLoadFloor3]	0; 
 
 }
 # puts "Dead load defined"

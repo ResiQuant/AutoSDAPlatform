@@ -479,34 +479,57 @@ class Building(object):
         R = np.zeros(self.geometry['number of story'])
         Kc = ICol/Lcol
         Kb = IzBeam/lengthBeam
-        if self.geometry['number of story'] > 1:
-            R[0] = 48*Es/(storyHgt[0]*(4*storyHgt[0]/np.sum(Kc[0,:]) + 
-                                    (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) +
-                                                                np.sum(Kc[0,:])/12)))
+        if self.geometry['number of story'] == 1:
+            # One story building #
+            a = 12*Es*ICol[0, :]/Lcol[0,:]**3
+            b = 6*Es*ICol[0,:]/Lcol[0,:]**2
+            c = 4*Es*IzBeam[0,:]/lengthBeam[0,:]
+            c = np.hstack((c,c[-1]))
+            d = 2*Es*IzBeam[0,:]/lengthBeam[0,:]
+            d = np.hstack((d,d[-1]))
+            
+            Ko = np.sum(a)
+            K1 = b.reshape([1, self.geometry['number of X bay']+1])
+            K2 = b.reshape([self.geometry['number of X bay']+1, 1])
+            K3 = np.zeros([self.geometry['number of X bay']+1, self.geometry['number of X bay']+1])
+            for i in range(self.geometry['number of X bay']+1):
+                if i == 0:
+                    K3[0, 0] = b[i] + c[i]
+                    K3[1, 0] = d[i]
+                elif i == self.geometry['number of X bay']:
+                    K3[-2, -1] = d[i]
+                    K3[-1, -1] = b[i] + c[i]
+                else:
+                    K3[i-1, i] = d[i]
+                    K3[i  , i] = b[i] + c[i]
+                    K3[i+1, i] = d[i]
+            R = Ko - np.matmul(K1,(np.matmul(np.linalg.inv(K3),K2)))[0][0]
+                    
         else:
+            # Two and more story buildings #
             R[0] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
                                          storyHgt[-1]/np.sum(Kb[-1,:])))
     
-        if self.geometry['number of story'] == 2:
-            R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
+            if self.geometry['number of story'] == 2:
+                R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
+                                                 (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
+                                                 storyHgt[-1]/np.sum(Kb[-1,:])))
+            elif self.geometry['number of story'] > 2:
+                R[1] = 48*Es/(storyHgt[1]*(4*storyHgt[1]/np.sum(Kc[1,:]) + 
+                                           (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) + 
+                                                                      np.sum(Kc[0,:])/12) + 
+                                           (storyHgt[1]+storyHgt[2])/(np.sum(Kb[1,:]))))
+                for n in range(2, self.geometry['number of story'] - 1):
+                    m = n - 1
+                    o = n + 1
+                    R[n] = 48*Es/(storyHgt[n]*(4*storyHgt[n]/np.sum(Kc[n,:]) + 
+                                               (storyHgt[m]+storyHgt[n])/np.sum(Kb[m,:]) + 
+                                               (storyHgt[n]+storyHgt[o])/np.sum(Kb[n,:])))
+                
+                R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
                                              (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
                                              storyHgt[-1]/np.sum(Kb[-1,:])))
-        elif self.geometry['number of story'] > 2:
-            R[1] = 48*Es/(storyHgt[1]*(4*storyHgt[1]/np.sum(Kc[1,:]) + 
-                                       (storyHgt[0]+storyHgt[1])/(np.sum(Kb[0,:]) + 
-                                                                  np.sum(Kc[0,:])/12) + 
-                                       (storyHgt[1]+storyHgt[2])/(np.sum(Kb[1,:]))))
-            for n in range(2, self.geometry['number of story'] - 1):
-                m = n - 1
-                o = n + 1
-                R[n] = 48*Es/(storyHgt[n]*(4*storyHgt[n]/np.sum(Kc[n,:]) + 
-                                           (storyHgt[m]+storyHgt[n])/np.sum(Kb[m,:]) + 
-                                           (storyHgt[n]+storyHgt[o])/np.sum(Kb[n,:])))
             
-            R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
-                                         (2*storyHgt[-2]+storyHgt[-1])/np.sum(Kb[-2,:]) + 
-                                         storyHgt[-1]/np.sum(Kb[-1,:])))
-        
         # Calculate drift
         V_story = self.seismic_force_for_drift['story shear'].T / self.geometry['number of X LFRS'] * self.ACCIDENTAL_TORSION
         story_drift = (V_story/R)/storyHgt
