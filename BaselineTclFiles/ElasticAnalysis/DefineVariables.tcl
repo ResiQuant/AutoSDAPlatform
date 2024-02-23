@@ -32,8 +32,8 @@
 	
 # Define rigid links between leaning column and frame
 	set TrussMatID 600; 	# Material tag
-	set AreaRigid  1e7; 	# Large area
-	set IRigid 	   1e7;     # Large moment of inertia
+	set AreaRigid  [expr 50*50]; 	# Large area [using 500in2 section as a reference]
+	set IRigid 	   [expr 50*pow(50,3)]; # Large moment of inertia [using second moment of area of a large rectangle as a reference] 
 	uniaxialMaterial Elastic $TrussMatID $Es;
 	
 # puts "Variables defined"

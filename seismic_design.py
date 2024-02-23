@@ -90,16 +90,17 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
     _ = ElasticAnalysis(building_1, for_drift_only=True, for_period_only=False)
     # print('')
+    # print('DRIFT LIMIT = '+str(building_1.DRIFT_LIMIT*100))
+    # print('')
     # print('Number of stories: (#)')
     # print(building_1.geometry['number of story'])
-    # print("Wilbur story drifts: (%)")
-    # print(last_story_drift)        
-    # building_1.read_story_drift()
+    #print("Wilbur story drifts: (%)")
+    #print(last_story_drift)  
+      
+    building_1.read_story_drift()
     # print('')
     # print("OpenSees story drifts: (%)")
     # print(np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100))        
-    
-    building_1.calculate_story_drift_Wilbur()
     
     # ************************************************************************
     # /////////// Optimize Member Size for Drift with OpenSees ///////////////
@@ -140,9 +141,9 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # Add a check here: if the program does not go into previous while loop,
     # probably the initial size is not strong enough ==> not necessary to go into following codes    
     if iteration == 0:
-        # print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
-        # print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
-        # print(building_1.member_size)
+        print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
+        print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
+        print(building_1.member_size)
         sys.stderr.write("Initial section size is not strong enough!")
         sys.stderr.write("Please increase initial depth!")
         
