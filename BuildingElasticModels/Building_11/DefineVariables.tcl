@@ -25,15 +25,15 @@
 	set Es 	29000;
 	
 # Define very small number
-	set Negligible 1e-12;
+	set Negligible 1e-9;
 	
 # Define gravity constant
 	set g 386.4;
 	
 # Define rigid links between leaning column and frame
 	set TrussMatID 600; 	# Material tag
-	set AreaRigid  1e9; 	# Large area
-	set IRigid 	   1e9;     # Large moment of inertia
+	set AreaRigid  1e7; 	# Large area
+	set IRigid 	   1e7;     # Large moment of inertia
 	uniaxialMaterial Elastic $TrussMatID $Es;
 	
 # puts "Variables defined"

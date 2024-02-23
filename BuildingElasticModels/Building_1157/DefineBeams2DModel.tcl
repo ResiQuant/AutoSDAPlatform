@@ -2,16 +2,16 @@
 
 
 # Define beam section sizes 
-set	BeamLevel2	[SectionProperty W21X57]; 
+set	BeamLevel2	[SectionProperty W36X247]; 
 set	BeamLevel3	[SectionProperty W12X136]; 
-set	BeamLevel4	[SectionProperty W21X147]; 
+set	BeamLevel4	[SectionProperty W21X201]; 
 set	BeamLevel5	[SectionProperty W14X132]; 
-set	BeamLevel6	[SectionProperty W18X119]; 
-set	BeamLevel7	[SectionProperty W12X136]; 
-set	BeamLevel8	[SectionProperty W12X136]; 
+set	BeamLevel6	[SectionProperty W21X132]; 
+set	BeamLevel7	[SectionProperty W14X132]; 
+set	BeamLevel8	[SectionProperty W14X145]; 
 set	BeamLevel9	[SectionProperty W18X71]; 
-set	BeamLevel10	[SectionProperty W14X53]; 
-set	BeamLevel11	[SectionProperty W14X26]; 
+set	BeamLevel10	[SectionProperty W18X55]; 
+set	BeamLevel11	[SectionProperty W12X35]; 
 
 
 # Define beams 

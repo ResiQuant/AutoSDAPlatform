@@ -475,18 +475,20 @@ class Building(object):
         storyHgt = Lcol[:,0]
         Es = self.steel.E
         
-        # Calculate floor stiffness with Wilbut formulas for frames
+        # Calculate floor stiffness with Wilbur formulas for frames
         R = np.zeros(self.geometry['number of story'])
         Kc = ICol/Lcol
         Kb = IzBeam/lengthBeam
         if self.geometry['number of story'] == 1:
             # One story building #
+            # Use matrix structural analysis #
             a = 12*Es*ICol[0, :]/Lcol[0,:]**3
             b = 6*Es*ICol[0,:]/Lcol[0,:]**2
-            c = 4*Es*IzBeam[0,:]/lengthBeam[0,:]
-            c = np.hstack((c,c[-1]))
-            d = 2*Es*IzBeam[0,:]/lengthBeam[0,:]
+            c = 4*Es*ICol[0,:]/Lcol[0,:]
+            d = 4*Es*IzBeam[0,:]/lengthBeam[0,:]
             d = np.hstack((d,d[-1]))
+            e = 2*Es*IzBeam[0,:]/lengthBeam[0,:]
+            e = np.hstack((e,e[-1]))
             
             Ko = np.sum(a)
             K1 = b.reshape([1, self.geometry['number of X bay']+1])
@@ -494,21 +496,29 @@ class Building(object):
             K3 = np.zeros([self.geometry['number of X bay']+1, self.geometry['number of X bay']+1])
             for i in range(self.geometry['number of X bay']+1):
                 if i == 0:
-                    K3[0, 0] = b[i] + c[i]
-                    K3[1, 0] = d[i]
+                    K3[0, 0] = c[i] + d[i]
+                    K3[1, 0] = e[i]
                 elif i == self.geometry['number of X bay']:
-                    K3[-2, -1] = d[i]
-                    K3[-1, -1] = b[i] + c[i]
+                    K3[-2, -1] = e[i]
+                    K3[-1, -1] = c[i] + d[i]
                 else:
-                    K3[i-1, i] = d[i]
-                    K3[i  , i] = b[i] + c[i]
-                    K3[i+1, i] = d[i+1]
-            R = Ko - np.matmul(K1,(np.matmul(np.linalg.inv(K3),K2)))[0][0]
-                    
+                    K3[i-1, i] = e[i]
+                    K3[i  , i] = c[i] + d[i] + d[i+1]
+                    K3[i+1, i] = e[i+1]
+            R = Ko - np.matmul(K1,np.matmul(np.linalg.inv(K3),K2))[0][0]
+            
+            # K = np.zeros([self.geometry['number of X bay']+2, self.geometry['number of X bay']+2])
+            # K[0,0] = Ko
+            # K[1:,0] = K2.flatten()
+            # K[0,1:] = K1.flatten()
+            # K[1:,1:] = K3
+            
         else:
             # Two and more story buildings #
-            R[0] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 
-                                         storyHgt[-1]/np.sum(Kb[-1,:])))
+            # Use Wilbur formulas #
+            R[0] = 48*Es/(storyHgt[0]*(4*storyHgt[0]/np.sum(Kc[0,:]) + 
+                                         (storyHgt[0] + storyHgt[1])/(np.sum(Kb[0,:]) + 
+                          np.sum(Kc[0,:])/12)))
     
             if self.geometry['number of story'] == 2:
                 R[-1] = 48*Es/(storyHgt[-1]*(4*storyHgt[-1]/np.sum(Kc[-1,:]) + 

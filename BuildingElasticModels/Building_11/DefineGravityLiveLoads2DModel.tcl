@@ -42,7 +42,7 @@ set	LeaningColumnLiveLoadFloor8	60.650000;
 set	LeaningColumnLiveLoadFloor9	48.520000; 
 
 # Assign lateral load values caused by earthquake (kip)
-set	LateralLoad	[list	9.773273	17.469412	26.443262	36.268740	46.820385	58.010907	69.775390	53.848390];
+set	LateralLoad	[list	9.094278	16.255730	24.606124	33.748980	43.567553	53.980617	64.927766	50.107289];
 
 
 # Define uniform loads on beams
@@ -52,96 +52,96 @@ set	LateralLoad	[list	9.773273	17.469412	26.443262	36.268740	46.820385	58.010907
 # 103 Earthquake load only
 # 104 Gravity and earthquake (for calculation of drift)
 pattern	Plain	102	Constant	{# Level2
-eleLoad	-ele	2121221	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2221321	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2321421	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2421521	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2521621	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2621721	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2721821	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
-eleLoad	-ele	2821921	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	21222	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	22232	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	23242	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	24252	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	25262	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	26272	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	27282	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
+eleLoad	-ele	28292	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor2]; 
 
 # Level3
-eleLoad	-ele	2131231	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2231331	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2331431	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2431531	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2531631	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2631731	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2731831	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
-eleLoad	-ele	2831931	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	21323	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	22333	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	23343	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	24353	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	25363	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	26373	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	27383	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
+eleLoad	-ele	28393	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor3]; 
 
 # Level4
-eleLoad	-ele	2141241	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2241341	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2341441	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2441541	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2541641	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2641741	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2741841	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
-eleLoad	-ele	2841941	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	21424	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	22434	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	23444	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	24454	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	25464	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	26474	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	27484	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
+eleLoad	-ele	28494	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4]; 
 
 # Level5
-eleLoad	-ele	2151251	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2251351	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2351451	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2451551	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2551651	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2651751	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2751851	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
-eleLoad	-ele	2851951	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	21525	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	22535	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	23545	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	24555	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	25565	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	26575	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	27585	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
+eleLoad	-ele	28595	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor5]; 
 
 # Level6
-eleLoad	-ele	2161261	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2261361	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2361461	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2461561	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2561661	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2661761	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2761861	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
-eleLoad	-ele	2861961	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	21626	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	22636	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	23646	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	24656	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	25666	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	26676	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	27686	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
+eleLoad	-ele	28696	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor6]; 
 
 # Level7
-eleLoad	-ele	2171271	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2271371	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2371471	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2471571	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2571671	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2671771	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2771871	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
-eleLoad	-ele	2871971	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	21727	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	22737	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	23747	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	24757	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	25767	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	26777	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	27787	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
+eleLoad	-ele	28797	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor7]; 
 
 # Level8
-eleLoad	-ele	2181281	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2281381	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2381481	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2481581	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2581681	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2681781	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2781881	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
-eleLoad	-ele	2881981	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	21828	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	22838	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	23848	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	24858	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	25868	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	26878	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	27888	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
+eleLoad	-ele	28898	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor8]; 
 
 # Level9
-eleLoad	-ele	2191291	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2291391	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2391491	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2491591	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2591691	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2691791	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2791891	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
-eleLoad	-ele	2891991	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	21929	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	22939	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	23949	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	24959	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	25969	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	26979	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	27989	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
+eleLoad	-ele	28999	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor9]; 
 
 
 
 # Define point loads on leaning column
-load	102	0	[expr -1*$LeaningColumnLiveLoadFloor2]	0; 
-load	103	0	[expr -1*$LeaningColumnLiveLoadFloor3]	0; 
-load	104	0	[expr -1*$LeaningColumnLiveLoadFloor4]	0; 
-load	105	0	[expr -1*$LeaningColumnLiveLoadFloor5]	0; 
-load	106	0	[expr -1*$LeaningColumnLiveLoadFloor6]	0; 
-load	107	0	[expr -1*$LeaningColumnLiveLoadFloor7]	0; 
-load	108	0	[expr -1*$LeaningColumnLiveLoadFloor8]	0; 
-load	109	0	[expr -1*$LeaningColumnLiveLoadFloor9]	0; 
+load	10102	0	[expr -1*$LeaningColumnLiveLoadFloor2]	0; 
+load	10103	0	[expr -1*$LeaningColumnLiveLoadFloor3]	0; 
+load	10104	0	[expr -1*$LeaningColumnLiveLoadFloor4]	0; 
+load	10105	0	[expr -1*$LeaningColumnLiveLoadFloor5]	0; 
+load	10106	0	[expr -1*$LeaningColumnLiveLoadFloor6]	0; 
+load	10107	0	[expr -1*$LeaningColumnLiveLoadFloor7]	0; 
+load	10108	0	[expr -1*$LeaningColumnLiveLoadFloor8]	0; 
+load	10109	0	[expr -1*$LeaningColumnLiveLoadFloor9]	0; 
 
 }
 # puts "Live load defined"

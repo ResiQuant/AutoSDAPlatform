@@ -66,6 +66,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         
         # Before optimization, record the size in the last step.
         last_member = copy.deepcopy(building_1.member_size)
+        last_story_drift = np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
         
         # Perform optimization
         building_1.optimize_member_for_drift()
@@ -85,12 +86,20 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # Assign the last member size to building instance
     building_1.member_size = copy.deepcopy(last_member)
     building_1.calculate_story_drift_Wilbur()
-    # print("Wilbur story drifts: (%)")
-    # print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)        
             
     # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
-    _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
+    _ = ElasticAnalysis(building_1, for_drift_only=True, for_period_only=False)
+    print('')
+    print('Number of stories: (#)')
+    print(building_1.geometry['number of story'])
+    print("Wilbur story drifts: (%)")
+    print(last_story_drift)        
     building_1.read_story_drift()
+    print('')
+    print("OpenSees story drifts: (%)")
+    print(np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100))        
+    
+    building_1.calculate_story_drift_Wilbur()
     
     # ************************************************************************
     # /////////// Optimize Member Size for Drift with OpenSees ///////////////
@@ -107,7 +116,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         # print("Interior column:", building_1.member_size['interior column'])
         # print("Beam:", building_1.member_size['beam'])
         # print("Current story drifts: (%)")
-        # print(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
+        # print(np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100))
         
         # Before optimization, record the size in the last step.
         last_member = copy.deepcopy(building_1.member_size)
