@@ -378,10 +378,10 @@ def select_candidate_story(candidate, current_size, story_drift, min_index_accep
             continue_flag = False
             break        
     
-    if np.max(story_drift) == 100:
-        print('\nTARGET STORY = '+str(target_story))        
-        print('\nCONTINUE FLAG = '+str(continue_flag))
-        print(story_drift)
+    #if np.max(story_drift) == 100:
+        #print('\nTARGET STORY = '+str(target_story))        
+        #print('\nCONTINUE FLAG = '+str(continue_flag))
+        #print(story_drift)
         
     return target_story, continue_flag
 
