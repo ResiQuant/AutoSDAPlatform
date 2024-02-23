@@ -52,9 +52,9 @@ eleLoad	-ele	2441541	-type	-beamUniform	[expr -1*$BeamDeadLoadFloor4];
 
 
 # Define point loads on leaning column
-load	62	0	[expr -1*$LeaningColumnDeadLoadFloor2]	0; 
-load	63	0	[expr -1*$LeaningColumnDeadLoadFloor3]	0; 
-load	64	0	[expr -1*$LeaningColumnDeadLoadFloor4]	0; 
+load	1062	0	[expr -1*$LeaningColumnDeadLoadFloor2]	0; 
+load	1063	0	[expr -1*$LeaningColumnDeadLoadFloor3]	0; 
+load	1064	0	[expr -1*$LeaningColumnDeadLoadFloor4]	0; 
 
 }
 # puts "Dead load defined"

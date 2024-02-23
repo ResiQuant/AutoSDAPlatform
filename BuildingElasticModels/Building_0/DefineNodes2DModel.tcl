@@ -40,18 +40,18 @@ node	541	[expr 4*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	 # Column #5
 # puts "Nodes at frame corner defined" 
 
 # Define nodes for leaning column 
-node	61	[expr 5*$BayWidth]	[expr 0*$FirstStory]; 	# Level 1
-node	62	[expr 5*$BayWidth]	[expr 1*$FirstStory]; 	# Level 2
-node	63	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Level 3
-node	64	[expr 5*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Level 4
+node	1061	[expr 5*$BayWidth]	[expr 0*$FirstStory]; 	# Level 1
+node	1062	[expr 5*$BayWidth]	[expr 1*$FirstStory]; 	# Level 2
+node	1063	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Level 3
+node	1064	[expr 5*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Level 4
 
 # puts "Nodes for leaning column defined" 
 
 # Define extra nodes needed to define leaning column springs 
-node	622	[expr 5*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node below floor level 2
-node	624	[expr 5*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node above floor level 2
-node	632	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node below floor level 3
-node	634	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node above floor level 3
-node	642	[expr 5*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Node below floor level 4
+node	10622	[expr 5*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node below floor level 2
+node	10624	[expr 5*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node above floor level 2
+node	10632	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node below floor level 3
+node	10634	[expr 5*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node above floor level 3
+node	10642	[expr 5*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Node below floor level 4
 
 # puts "Extra nodes for leaning column springs defined"

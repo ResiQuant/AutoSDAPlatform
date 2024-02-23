@@ -502,7 +502,7 @@ class Building(object):
                 else:
                     K3[i-1, i] = d[i]
                     K3[i  , i] = b[i] + c[i]
-                    K3[i+1, i] = d[i]
+                    K3[i+1, i] = d[i+1]
             R = Ko - np.matmul(K1,(np.matmul(np.linalg.inv(K3),K2)))[0][0]
                     
         else:

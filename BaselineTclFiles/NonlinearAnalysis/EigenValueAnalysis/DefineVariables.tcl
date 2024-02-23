@@ -31,18 +31,18 @@ set Es 29000;
 set Fy 50.00;
 
 # Define a very small number
-set Negligible 1e-12;
+set Negligible 1e-9;
 
 # Define a very large number
-set LargeNumber 1e12;
+set LargeNumber 1e9;
 
 # Define gravity constant
 set g 386.4;
 
 # Define rigid links between leaning column and frame
 set TrussMatID 600;     # Material tag
-set AreaRigid  1e12;        # Large area
-set IRigid     1e12;     # Large moment of inertia
+set AreaRigid  1e7;        # Large area
+set IRigid     1e7;     # Large moment of inertia
 uniaxialMaterial Elastic $TrussMatID $Es;
 
 # Define very stiff material used for axial stiffness of beam/column hinges

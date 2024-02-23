@@ -176,7 +176,7 @@ class ElasticAnalysis(object):
                 # Beam elements in frame
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("element\telasticBeamColumn")  # elastic beam-column command
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))  # Beam element tag
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
                     tclfile.write("\t%i%i%i" % (j, i, 1))  # Starting node
                     tclfile.write("\t%i%i%i" % (j+1, i, 1))  # Ending node
                     tclfile.write("\t[lindex $BeamLevel%i 2]" % i)  # Area of beam section
@@ -186,7 +186,7 @@ class ElasticAnalysis(object):
 
                 # Beam elements connection frame and leaning column
                 tclfile.write("element\ttruss")  # elastic beam-column command
-                tclfile.write("\t%i%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i, 1,
+                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
                                                   building.geometry['number of X bay']+2, i))
                 tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+1, i, 1))  # Starting node in frame
                 tclfile.write("\t10%i%i" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
@@ -219,7 +219,7 @@ class ElasticAnalysis(object):
                 # Columns in frame
                 for j in range(1, building.geometry['number of X bay']+2):
                     tclfile.write("element\telasticBeamColumn")  # element command
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, j, i, 1, j, i+1, 1))  # element tag
+                    tclfile.write("\t%i%i%i%i%i" % (3, j, i, j, i+1))  # element tag
                     tclfile.write("\t%i%i%i" % (j, i, 1))  # Starting node
                     tclfile.write("\t%i%i%i" % (j, i+1, 1))  # Ending node
                     # Determine whether the column is interior or exterior column
@@ -237,13 +237,13 @@ class ElasticAnalysis(object):
                 # Leaning column elements
                 tclfile.write("element\telasticBeamColumn")  # element command
                 if i == 1:
-                    tclfile.write("\t%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
-                                                      building.geometry['number of X bay']+2, i+1, 2))
+                    tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
+                                                      building.geometry['number of X bay']+2, i+1))
                     tclfile.write("\t10%i%i" % (building.geometry['number of X bay']+2, i))
                     tclfile.write("\t10%i%i%i" % (building.geometry['number of X bay']+2, i+1, 2))
                 else:
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i, 4,
-                                                        building.geometry['number of X bay']+2, i+1, 2))
+                    tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
+                                                        building.geometry['number of X bay']+2, i+1))
                     tclfile.write("\t10%i%i%i" % (building.geometry['number of X bay']+2, i, 4))
                     tclfile.write("\t10%i%i%i" % (building.geometry['number of X bay']+2, i+1, 2))
                 tclfile.write("\t$AreaRigid\t$Es\t$IRigid\t$PDeltaTransf; \n\n")
@@ -457,7 +457,7 @@ class ElasticAnalysis(object):
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("eleLoad\t-ele")
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))
                     tclfile.write("\t-type\t-beamUniform\t[expr -1*$BeamDeadLoadFloor%i]; \n" % i)
                 tclfile.write("\n")
             tclfile.write("\n\n")
@@ -528,7 +528,7 @@ class ElasticAnalysis(object):
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("eleLoad\t-ele")
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))
                     tclfile.write("\t-type\t-beamUniform\t[expr -1*$BeamLiveLoadFloor%i]; \n" % i)
                 tclfile.write("\n")
             tclfile.write("\n\n")
@@ -658,7 +658,7 @@ class ElasticAnalysis(object):
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("eleLoad\t-ele")
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))
                     tclfile.write("\t-type\t-beamUniform"
                                   "\t[expr -(1.2+0.2*%.2f)*$BeamDeadLoadFloor%i - "
                                   "0.5*$BeamLiveLoadFloor%i]; \n"
