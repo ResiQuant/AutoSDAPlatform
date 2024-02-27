@@ -4,6 +4,6 @@
 cd	$baseDir/$dataDir/GlobalBeamForces
 
 # Beam element global force recorders
-recorder	Element	-file	GlobalXBeamForcesLevel2.out	-time	-ele	2121221	2221321	2321421	2421521	force; 
-recorder	Element	-file	GlobalXBeamForcesLevel3.out	-time	-ele	2131231	2231331	2331431	2431531	force; 
-recorder	Element	-file	GlobalXBeamForcesLevel4.out	-time	-ele	2141241	2241341	2341441	2441541	force; 
+recorder	Element	-file	GlobalXBeamForcesLevel2.out	-time	-ele	21222	22232	23242	24252	force; 
+recorder	Element	-file	GlobalXBeamForcesLevel3.out	-time	-ele	21323	22333	23343	24353	force; 
+recorder	Element	-file	GlobalXBeamForcesLevel4.out	-time	-ele	21424	22434	23444	24454	force; 

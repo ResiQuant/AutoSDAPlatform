@@ -33,9 +33,9 @@ set	LateralLoad	[list	39.046052	84.711048	133.259982];
 # 104 Gravity and earthquake (for calculation of drift)
 pattern	Plain	103	Linear	{
 
-load	121	[lindex $LateralLoad 0] 0.0 0.0;	# Level2
-load	131	[lindex $LateralLoad 1] 0.0 0.0;	# Level3
-load	141	[lindex $LateralLoad 2] 0.0 0.0;	# Level4
+load	1121	[lindex $LateralLoad 0] 0.0 0.0;	# Level2
+load	1131	[lindex $LateralLoad 1] 0.0 0.0;	# Level3
+load	1141	[lindex $LateralLoad 2] 0.0 0.0;	# Level4
 
 }
 # puts "Earthquake load defined"

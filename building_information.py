@@ -414,9 +414,9 @@ class Building(object):
         self.elastic_response = {'story drift': story_drift}
         
         
-    def calculate_story_drift_Wilbur(self):
+    def calculate_story_drift_approx(self):
         """
-        This method is used to calculate approximately the story drifts using the Wilbur method
+        This method is used to calculate approximately the story drifts using structural analysis methods
         The load case for story drift is the combination of dead, live, and earthquake loads.
         :return: an [story*1] array which includes the story drifts for each story.
         """

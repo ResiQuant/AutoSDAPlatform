@@ -12,24 +12,24 @@ set	NodalMassFloor4	[expr $Floor4Weight*$FrameTributaryMassRatio/$TotalNodesPerF
 
 
 # Level 2 
-mass	121	$NodalMassFloor2	$Negligible	$Negligible
-mass	221	$NodalMassFloor2	$Negligible	$Negligible
-mass	321	$NodalMassFloor2	$Negligible	$Negligible
-mass	421	$NodalMassFloor2	$Negligible	$Negligible
-mass	521	$NodalMassFloor2	$Negligible	$Negligible
+mass	1121	$NodalMassFloor2	$Negligible	$Negligible
+mass	2121	$NodalMassFloor2	$Negligible	$Negligible
+mass	3121	$NodalMassFloor2	$Negligible	$Negligible
+mass	4121	$NodalMassFloor2	$Negligible	$Negligible
+mass	5121	$NodalMassFloor2	$Negligible	$Negligible
 
 # Level 3 
-mass	131	$NodalMassFloor3	$Negligible	$Negligible
-mass	231	$NodalMassFloor3	$Negligible	$Negligible
-mass	331	$NodalMassFloor3	$Negligible	$Negligible
-mass	431	$NodalMassFloor3	$Negligible	$Negligible
-mass	531	$NodalMassFloor3	$Negligible	$Negligible
+mass	1131	$NodalMassFloor3	$Negligible	$Negligible
+mass	2131	$NodalMassFloor3	$Negligible	$Negligible
+mass	3131	$NodalMassFloor3	$Negligible	$Negligible
+mass	4131	$NodalMassFloor3	$Negligible	$Negligible
+mass	5131	$NodalMassFloor3	$Negligible	$Negligible
 
 # Level 4 
-mass	141	$NodalMassFloor4	$Negligible	$Negligible
-mass	241	$NodalMassFloor4	$Negligible	$Negligible
-mass	341	$NodalMassFloor4	$Negligible	$Negligible
-mass	441	$NodalMassFloor4	$Negligible	$Negligible
-mass	541	$NodalMassFloor4	$Negligible	$Negligible
+mass	1141	$NodalMassFloor4	$Negligible	$Negligible
+mass	2141	$NodalMassFloor4	$Negligible	$Negligible
+mass	3141	$NodalMassFloor4	$Negligible	$Negligible
+mass	4141	$NodalMassFloor4	$Negligible	$Negligible
+mass	5141	$NodalMassFloor4	$Negligible	$Negligible
 
 # puts "Nodal mass defined"

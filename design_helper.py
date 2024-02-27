@@ -227,6 +227,17 @@ def save_design_drifts(building, constructability):
     design_drift = pd.DataFrame(data=building.elastic_response['story drift'], columns=['story drift'])
     design_drift.to_csv(os.path.join(building.directory['building data'], prefix+'Drift.csv'), sep=',', index=False)
 
+def save_final_period(building, constructability):
+    """
+    This function is used to store the final modal period.
+    :param building: a class defined in "building_information.py" file
+    :param constructability: a boolean variable to denote whether to consider the constructability.
+    :return: No variables. Just save design story drifts to .csv files.
+    """
+    prefix = 'Construction' if constructability else 'Optimal'
+    modal_period = pd.DataFrame(data=[building.elf_parameters['modal period']], columns=['period'])
+    modal_period.to_csv(os.path.join(building.directory['building data'], prefix+'Period.csv'), sep=',', index=False)
+
 
 def store_doubler_plate_thickness(building, connection_set, constructability):
     """
@@ -331,6 +342,8 @@ def save_all_design_results(building, column_set, beam_set, connection_set, cons
     save_design_size(building, constructability)
     # Store the design drifts
     save_design_drifts(building, constructability)
+    # Store the modal period
+    save_final_period(building, constructability)
     # Store the doubler plate thickness
     store_doubler_plate_thickness(building, connection_set, constructability)
     # Store the strong column beam ratio

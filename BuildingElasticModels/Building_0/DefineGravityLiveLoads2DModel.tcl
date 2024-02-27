@@ -52,9 +52,9 @@ eleLoad	-ele	24454	-type	-beamUniform	[expr -1*$BeamLiveLoadFloor4];
 
 
 # Define point loads on leaning column
-load	1062	0	[expr -1*$LeaningColumnLiveLoadFloor2]	0; 
-load	1063	0	[expr -1*$LeaningColumnLiveLoadFloor3]	0; 
-load	1064	0	[expr -1*$LeaningColumnLiveLoadFloor4]	0; 
+load	6202	0	[expr -1*$LeaningColumnLiveLoadFloor2]	0; 
+load	6302	0	[expr -1*$LeaningColumnLiveLoadFloor3]	0; 
+load	6402	0	[expr -1*$LeaningColumnLiveLoadFloor4]	0; 
 
 }
 # puts "Live load defined"

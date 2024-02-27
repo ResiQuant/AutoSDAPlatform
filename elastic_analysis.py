@@ -88,7 +88,7 @@ class ElasticAnalysis(object):
             for i in range(1, building.geometry['number of story']+2):  # i is floor level number
                 tclfile.write("# Level %i \n" % i)
                 for j in range(1, building.geometry['number of X bay']+2):  # j is column label
-                    tclfile.write("node\t%i%i%i" % (j, i, 1))  # Node label
+                    tclfile.write("node\t%i%i%i" % (j, i+10, 1))  # Node label
                     tclfile.write("\t[expr %i*$BayWidth]" % (j - 1))  # X coordinate
                     if i <= 2:
                         tclfile.write("\t[expr %i*$FirstStory];" % (i - 1))  # Y coordinate
@@ -141,7 +141,7 @@ class ElasticAnalysis(object):
             tclfile.write("# This file will be used to define the fixity at all column bases \n\n\n")
             tclfile.write("# Defining fixity at column base \n")
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("fix\t%i%i%i\t1\t1\t1; \n" % (j, 1, 1))
+                tclfile.write("fix\t%i%i%i\t1\t1\t1; \n" % (j, 1+10, 1))
             # Leaning column base
             tclfile.write("fix\t%i%i02\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
             tclfile.write("# puts \"All column base fixities have been defined\"")
@@ -155,11 +155,11 @@ class ElasticAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("# Level %i \n" % i)
                 for j in range(2, building.geometry['number of X bay']+2):
-                    tclfile.write("equalDOF\t%i%i%i\t%i%i%i\t$ConstrainDOF;" % (1, i, 1, j, i, 1))
+                    tclfile.write("equalDOF\t%i%i%i\t%i%i%i\t$ConstrainDOF;" % (1, i+10, 1, j, i+10, 1))
                     tclfile.write("\t# Pier 1 to Pier %i\n" % j)
                 # Include the leaning column nodes to floor constrain
                 tclfile.write("equalDOF\t%i%i%i\t%i%i02\t$ConstrainDOF;"
-                              % (1, i, 1, building.geometry['number of X bay']+2, i))
+                              % (1, i+10, 1, building.geometry['number of X bay']+2, i))
                 tclfile.write("\t# Pier 1 to Leaning column\n\n")
             tclfile.write("# puts \"Floor constraint defined\"")
 
@@ -177,8 +177,8 @@ class ElasticAnalysis(object):
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("element\telasticBeamColumn")  # elastic beam-column command
                     tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
-                    tclfile.write("\t%i%i%i" % (j, i, 1))  # Starting node
-                    tclfile.write("\t%i%i%i" % (j+1, i, 1))  # Ending node
+                    tclfile.write("\t%i%i%i" % (j, i+10, 1))  # Starting node
+                    tclfile.write("\t%i%i%i" % (j+1, i+10, 1))  # Ending node
                     tclfile.write("\t[lindex $BeamLevel%i 2]" % i)  # Area of beam section
                     tclfile.write("\t$Es")  # Young's modulus of steel material
                     tclfile.write("\t[lindex $BeamLevel%i 6]" % i)  # Moment of inertia of beam section
@@ -188,7 +188,7 @@ class ElasticAnalysis(object):
                 tclfile.write("element\ttruss")  # elastic beam-column command
                 tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
                                                   building.geometry['number of X bay']+2, i))
-                tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+1, i, 1))  # Starting node in frame
+                tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+1, i+10, 1))  # Starting node in frame
                 tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
                 tclfile.write("\t$AreaRigid\t$TrussMatID; \n")  # Large area and truss element material
                 tclfile.write("\n")
@@ -220,8 +220,8 @@ class ElasticAnalysis(object):
                 for j in range(1, building.geometry['number of X bay']+2):
                     tclfile.write("element\telasticBeamColumn")  # element command
                     tclfile.write("\t%i%i%i%i%i" % (3, j, i, j, i+1))  # element tag
-                    tclfile.write("\t%i%i%i" % (j, i, 1))  # Starting node
-                    tclfile.write("\t%i%i%i" % (j, i+1, 1))  # Ending node
+                    tclfile.write("\t%i%i%i" % (j, i+10, 1))  # Starting node
+                    tclfile.write("\t%i%i%i" % (j, (i+1)+10, 1))  # Ending node
                     # Determine whether the column is interior or exterior column
                     # This would affect the column section size
                     if 1 < j < building.geometry['number of X bay'] + 1:
@@ -297,7 +297,7 @@ class ElasticAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("# Level %i \n" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
-                    tclfile.write("mass\t%i%i%i" % (j, i, 1))  # Nodal mass command and node tag
+                    tclfile.write("mass\t%i%i%i" % (j, i+10, 1))  # Nodal mass command and node tag
                     tclfile.write("\t$NodalMassFloor%i" % i)  # Mass along X direction
                     tclfile.write("\t$Negligible\t$Negligible\n")  # Mass along Y and RotZ doesn't matter
                 tclfile.write("\n")
@@ -346,15 +346,15 @@ class ElasticAnalysis(object):
                 tclfile.write("recorder\tDrift\t-file")
                 tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
                 # Always use nodes on column #1 to calculate story drift
-                tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, i, 1))  # node at bottom of current story
-                tclfile.write("\t-jNode\t%i%i%i" % (1, i+1, 1))  # node at top of current story
+                tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, i+10, 1))  # node at bottom of current story
+                tclfile.write("\t-jNode\t%i%i%i" % (1, (i+1)+10, 1))  # node at top of current story
                 tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
             # Write the story drift recorder for roof
             tclfile.write("recorder\tDrift\t-file")
             tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
-            tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, 1, 1))
-            tclfile.write("\t-jNode\t%i%i%i" % (1, building.geometry['number of story']+1, 1))
+            tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, 1+10, 1))
+            tclfile.write("\t-jNode\t%i%i%i" % (1, (building.geometry['number of story']+1)+10, 1))
             tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
     def write_node_displacement_recorder(self, building):
@@ -368,7 +368,7 @@ class ElasticAnalysis(object):
                 tclfile.write("\tNodeDisplacementLevel%i.out" % i)
                 tclfile.write("\t-time\t-node")
                 for j in range(1, building.geometry['number of X bay']+2):
-                    tclfile.write("\t%i%i%i" % (j, i, 1))
+                    tclfile.write("\t%i%i%i" % (j, i+10, 1))
                 tclfile.write("\t-dof\t1\t2\t3\tdisp; \n")
 
     def write_beam_force_recorder(self, building):
@@ -596,7 +596,7 @@ class ElasticAnalysis(object):
             tclfile.write("pattern\tPlain\t103\tLinear\t{")
             tclfile.write("\n\n")
             for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i%i\t[lindex $LateralLoad %i] 0.0 0.0;\t# Level%i\n" % (1, i, 1, i-2, i))
+                tclfile.write("load\t%i%i%i\t[lindex $LateralLoad %i] 0.0 0.0;\t# Level%i\n" % (1, i+10, 1, i-2, i))
             tclfile.write("\n}\n")
             tclfile.write("# puts \"Earthquake load defined\"")
 
@@ -676,7 +676,7 @@ class ElasticAnalysis(object):
             # Earthquake lateral load
             tclfile.write("# Define earthquake lateral loads\n")
             for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i%i\t[lindex $LateralLoad %i]\t0.0\t0.0;\t# Level%i\n" % (1, i, 1, i-2, i))
+                tclfile.write("load\t%i%i%i\t[lindex $LateralLoad %i]\t0.0\t0.0;\t# Level%i\n" % (1, i+10, 1, i-2, i))
             tclfile.write("\n\n}\n")
 
             tclfile.write("# puts \"Gravity and earthquake loads defined\"")

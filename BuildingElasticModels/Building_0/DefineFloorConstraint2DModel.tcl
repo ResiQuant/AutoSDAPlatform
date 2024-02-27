@@ -3,24 +3,24 @@
 set	ConstrainDOF	1;	# Nodes at same floor level have identical lateral displacement 
 
 # Level 2 
-equalDOF	121	221	$ConstrainDOF;	# Pier 1 to Pier 2
-equalDOF	121	321	$ConstrainDOF;	# Pier 1 to Pier 3
-equalDOF	121	421	$ConstrainDOF;	# Pier 1 to Pier 4
-equalDOF	121	521	$ConstrainDOF;	# Pier 1 to Pier 5
-equalDOF	121	1062	$ConstrainDOF;	# Pier 1 to Leaning column
+equalDOF	1121	2121	$ConstrainDOF;	# Pier 1 to Pier 2
+equalDOF	1121	3121	$ConstrainDOF;	# Pier 1 to Pier 3
+equalDOF	1121	4121	$ConstrainDOF;	# Pier 1 to Pier 4
+equalDOF	1121	5121	$ConstrainDOF;	# Pier 1 to Pier 5
+equalDOF	1121	6202	$ConstrainDOF;	# Pier 1 to Leaning column
 
 # Level 3 
-equalDOF	131	231	$ConstrainDOF;	# Pier 1 to Pier 2
-equalDOF	131	331	$ConstrainDOF;	# Pier 1 to Pier 3
-equalDOF	131	431	$ConstrainDOF;	# Pier 1 to Pier 4
-equalDOF	131	531	$ConstrainDOF;	# Pier 1 to Pier 5
-equalDOF	131	1063	$ConstrainDOF;	# Pier 1 to Leaning column
+equalDOF	1131	2131	$ConstrainDOF;	# Pier 1 to Pier 2
+equalDOF	1131	3131	$ConstrainDOF;	# Pier 1 to Pier 3
+equalDOF	1131	4131	$ConstrainDOF;	# Pier 1 to Pier 4
+equalDOF	1131	5131	$ConstrainDOF;	# Pier 1 to Pier 5
+equalDOF	1131	6302	$ConstrainDOF;	# Pier 1 to Leaning column
 
 # Level 4 
-equalDOF	141	241	$ConstrainDOF;	# Pier 1 to Pier 2
-equalDOF	141	341	$ConstrainDOF;	# Pier 1 to Pier 3
-equalDOF	141	441	$ConstrainDOF;	# Pier 1 to Pier 4
-equalDOF	141	541	$ConstrainDOF;	# Pier 1 to Pier 5
-equalDOF	141	1064	$ConstrainDOF;	# Pier 1 to Leaning column
+equalDOF	1141	2141	$ConstrainDOF;	# Pier 1 to Pier 2
+equalDOF	1141	3141	$ConstrainDOF;	# Pier 1 to Pier 3
+equalDOF	1141	4141	$ConstrainDOF;	# Pier 1 to Pier 4
+equalDOF	1141	5141	$ConstrainDOF;	# Pier 1 to Pier 5
+equalDOF	1141	6402	$ConstrainDOF;	# Pier 1 to Leaning column
 
 # puts "Floor constraint defined"

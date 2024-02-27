@@ -51,57 +51,100 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
 
 
     # ************************************************************************
-    # ///////// Optimize Member Size for Drift with Wilbur method ////////////
+    # ///////// Optimize Member Size for Drift with Approx method ////////////
     # ************************************************************************
     # Much more efficient way to get to an initial set of section sizes than  
     # running OpenSees at every iteration
+    # Targets initially [DRIFT_LIMIT]. 
+    # If the drift ultimately estimated by OpenSees is larger than that of the 
+    # approximate method, re-starts the sizing but targeting [0.8*DRIFT_LIMIT]
+    # to avoid reducing too much the sizes such that the check with OpenSees 
+    # erroneously indicates there is no solution.
     
     # Define iteration index denoting how many iteration it has be performed
     iteration = 0
     # Perform the optimization process
+    initial_member = copy.deepcopy(building_1.member_size)
     last_member = copy.deepcopy(building_1.member_size)
+    story_drift_Approx =  np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
+    drift_target_factor    = 1.0 # factor for drift target to initialize size elements to pass drift check
+    perform_initial_sizing = True
     
-    while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
-            <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):
+    while perform_initial_sizing == True:
         
-        # Before optimization, record the size in the last step.
-        last_member = copy.deepcopy(building_1.member_size)
-        last_story_drift = np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
-        
-        # Perform optimization
-        building_1.optimize_member_for_drift()
-        
-        # Update the design period and thus the design seismic forces
-        # Calculate drift profile with Wilbur method for current sections and loads
-        building_1.calculate_story_drift_Wilbur()
-        
-        # Recalculate the period with Raleigh method and estimated drifts
-        building_1.calculate_modal_period_Rayleigh()
-        building_1.compute_seismic_force()
-        
-        # Calculate drift profile with Wilbur method for current sections and loads
-        building_1.calculate_story_drift_Wilbur()
-
-        iteration = iteration + 1
-    # Assign the last member size to building instance
-    building_1.member_size = copy.deepcopy(last_member)
-    building_1.calculate_story_drift_Wilbur()
+        if drift_target_factor == 0.8:
+            # If the approx drift estimate is larger than that of OpenSees, re-start the
+            # member sizing but targeting 0.8*DRIFT_LIMIT
+            # (Re)initialize member sizes
+            building_1.member_size = copy.deepcopy(initial_member)
             
-    # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
-    _ = ElasticAnalysis(building_1, for_drift_only=True, for_period_only=False)
-    # print('')
-    # print('DRIFT LIMIT = '+str(building_1.DRIFT_LIMIT*100))
-    # print('')
-    # print('Number of stories: (#)')
-    # print(building_1.geometry['number of story'])
-    #print("Wilbur story drifts: (%)")
-    #print(last_story_drift)  
-      
-    building_1.read_story_drift()
-    # print('')
-    # print("OpenSees story drifts: (%)")
-    # print(np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100))        
+            # Perform EigenValue Analysis only to obtain the period
+            _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=True)
+            building_1.read_modal_period()
+        
+            # Compute the seismic story forces based on modal period and CuTa
+            building_1.compute_seismic_force()    
+            
+            # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
+            _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=False)
+        
+            # Read elastic analysis drift
+            building_1.read_story_drift()
+
+        # Optimize memeber sizes with an approxiamte drift estimation method
+        while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
+               <= drift_target_factor*building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):
+            
+            # Before optimization, record the size in the last step.
+            last_member = copy.deepcopy(building_1.member_size)
+            story_drift_Approx = np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
+            
+            # Perform optimization
+            building_1.optimize_member_for_drift()
+            
+            # Update the design period and thus the design seismic forces
+            # Calculate drift profile with Wilbur method for current sections and loads
+            building_1.calculate_story_drift_approx()
+            
+            # Recalculate the period with Raleigh method and estimated drifts
+            building_1.calculate_modal_period_Rayleigh()
+            building_1.compute_seismic_force()
+            
+            # Calculate drift profile with Wilbur method for current sections and loads
+            building_1.calculate_story_drift_approx()
     
+            iteration = iteration + 1
+        # Assign the last member size to building instance
+        building_1.member_size = copy.deepcopy(last_member)
+        building_1.calculate_story_drift_approx()
+                
+        # Create an elastic analysis model for building instance above using "ElasticAnalysis" class
+        _ = ElasticAnalysis(building_1, for_drift_only=True, for_period_only=False)
+        building_1.read_story_drift()
+        story_drift_OpenSees = np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
+        
+        # print('')
+        # print('DRIFT LIMIT (%) = '+str(building_1.DRIFT_LIMIT*100))
+        # print('')
+        # print('Number of stories: (#)')
+        # print(building_1.geometry['number of story'])
+        # print("Approx. story drifts: (%)")
+        # print(story_drift_Approx)  
+        # print('')
+        # print("OpenSees story drifts: (%)")
+        # print(story_drift_OpenSees)
+        
+        if drift_target_factor == 0.8:
+            # already repeated the sizing to a lower drift limit to stop trying
+            perform_initial_sizing = False
+        if story_drift_Approx < story_drift_OpenSees:
+            # reduce drift target for approximate method
+            drift_target_factor = 0.8
+        else:
+            # no need to modify the drift limit for approx method because the 
+            # approximate method did not exceed OpenSees estimate
+            perform_initial_sizing = False
+        
     # ************************************************************************
     # /////////// Optimize Member Size for Drift with OpenSees ///////////////
     # ************************************************************************
@@ -141,9 +184,9 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     # Add a check here: if the program does not go into previous while loop,
     # probably the initial size is not strong enough ==> not necessary to go into following codes    
     if iteration == 0:
-        print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
-        print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
-        print(building_1.member_size)
+        # print('LOWEST DRIFT POSSIBLE = ' + str(np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR))
+        # print('DRIFT LIMIT = ' + str(building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']))
+        # print(building_1.member_size)
         sys.stderr.write("Initial section size is not strong enough!")
         sys.stderr.write("Please increase initial depth!")
         

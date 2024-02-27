@@ -52,14 +52,14 @@ eleLoad	-ele	24454	-type	-beamUniform	[expr -(1.2+0.2*1.50)*$BeamDeadLoadFloor4 
 
 
 # Define point loads on leaning column
-load	1062	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor2 -0.5*$LeaningColumnLiveLoadFloor2]	0;
-load	1063	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor3 -0.5*$LeaningColumnLiveLoadFloor3]	0;
-load	1064	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor4 -0.5*$LeaningColumnLiveLoadFloor4]	0;
+load	6202	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor2 -0.5*$LeaningColumnLiveLoadFloor2]	0;
+load	6302	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor3 -0.5*$LeaningColumnLiveLoadFloor3]	0;
+load	6402	0	[expr -(1.2+0.2*1.50)*$LeaningColumnDeadLoadFloor4 -0.5*$LeaningColumnLiveLoadFloor4]	0;
 
 # Define earthquake lateral loads
-load	121	[lindex $LateralLoad 0]	0.0	0.0;	# Level2
-load	131	[lindex $LateralLoad 1]	0.0	0.0;	# Level3
-load	141	[lindex $LateralLoad 2]	0.0	0.0;	# Level4
+load	1121	[lindex $LateralLoad 0]	0.0	0.0;	# Level2
+load	1131	[lindex $LateralLoad 1]	0.0	0.0;	# Level3
+load	1141	[lindex $LateralLoad 2]	0.0	0.0;	# Level4
 
 
 }
