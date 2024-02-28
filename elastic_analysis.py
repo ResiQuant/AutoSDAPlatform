@@ -179,7 +179,7 @@ class ElasticAnalysis(object):
                     tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
                     tclfile.write("\t%i%i%i" % (j, i+10, 1))  # Starting node
                     tclfile.write("\t%i%i%i" % (j+1, i+10, 1))  # Ending node
-                    tclfile.write("\t[lindex $BeamLevel%i 2]" % i)  # Area of beam section
+                    tclfile.write("\t[expr 10*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified by 10 for rigid diaphragm instead of using constraints)
                     tclfile.write("\t$Es")  # Young's modulus of steel material
                     tclfile.write("\t[lindex $BeamLevel%i 6]" % i)  # Moment of inertia of beam section
                     tclfile.write("\t$LinearTransf; \n")  # Geometric transformation
@@ -345,16 +345,16 @@ class ElasticAnalysis(object):
             for i in range(1, building.geometry['number of story']+1):
                 tclfile.write("recorder\tDrift\t-file")
                 tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
-                # Always use nodes on column #1 to calculate story drift
-                tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, i+10, 1))  # node at bottom of current story
-                tclfile.write("\t-jNode\t%i%i%i" % (1, (i+1)+10, 1))  # node at top of current story
+                # Always use nodes on column #2 to calculate story drift
+                tclfile.write("\t-time\t-iNode\t%i%i%i" % (2, i+10, 1))  # node at bottom of current story
+                tclfile.write("\t-jNode\t%i%i%i" % (2, (i+1)+10, 1))  # node at top of current story
                 tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
             # Write the story drift recorder for roof
             tclfile.write("recorder\tDrift\t-file")
             tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
-            tclfile.write("\t-time\t-iNode\t%i%i%i" % (1, 1+10, 1))
-            tclfile.write("\t-jNode\t%i%i%i" % (1, (building.geometry['number of story']+1)+10, 1))
+            tclfile.write("\t-time\t-iNode\t%i%i%i" % (2, 1+10, 1))
+            tclfile.write("\t-jNode\t%i%i%i" % (2, (building.geometry['number of story']+1)+10, 1))
             tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
     def write_node_displacement_recorder(self, building):

@@ -1,7 +1,7 @@
 # Define analysis series
 wipe all
 
-set AnalysisLoadType [list EigenValue]
+set AnalysisLoadType [list GravityEarthquake]
 
 # Loop over all the analysis types
 foreach LoadType $AnalysisLoadType {
@@ -24,7 +24,7 @@ source DefineNodes2DModel.tcl
 source DefineFixities2DModel.tcl
 
 # Defining floor constraint
-source DefineFloorConstraint2DModel.tcl
+# source DefineFloorConstraint2DModel.tcl
 
 # Defining beam elements
 source DefineBeams2DModel.tcl
