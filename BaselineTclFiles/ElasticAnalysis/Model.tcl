@@ -24,7 +24,7 @@ source DefineNodes2DModel.tcl
 source DefineFixities2DModel.tcl
 
 # Defining floor constraint
-source DefineFloorConstraint2DModel.tcl
+# source DefineFloorConstraint2DModel.tcl
 
 # Defining beam elements
 source DefineBeams2DModel.tcl

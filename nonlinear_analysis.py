@@ -53,7 +53,7 @@ class NonlinearAnalysis(object):
         if analysis_type != 'EigenValueAnalysis' and analysis_type != 'PushoverAnalysis' \
                 and analysis_type != 'DynamicAnalysis':
             sys.stderr.write('Wrong analysis type input. Please input one of the followings:\n')
-            sys.stderr.write('EigenValueAnalys, PushoverAnalysis, DynamicAnalysis')
+            sys.stderr.write('EigenValueAnalysis, PushoverAnalysis, DynamicAnalysis')
             sys.exit(99)
 
         # Change the working directory to the target building folder

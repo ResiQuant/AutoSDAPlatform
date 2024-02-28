@@ -2,15 +2,15 @@
 
 
 # Define exterior column section sizes 
-set	ExteriorColumnStory1	[SectionProperty W14X257]; 
-set	ExteriorColumnStory2	[SectionProperty W14X257]; 
-set	ExteriorColumnStory3	[SectionProperty W14X132]; 
+set	ExteriorColumnStory1	[SectionProperty W14X730]; 
+set	ExteriorColumnStory2	[SectionProperty W14X730]; 
+set	ExteriorColumnStory3	[SectionProperty W14X730]; 
 
 
 # Define interior column section sizes 
-set	InteriorColumnStory1	[SectionProperty W14X311]; 
-set	InteriorColumnStory2	[SectionProperty W14X311]; 
-set	InteriorColumnStory3	[SectionProperty W14X132]; 
+set	InteriorColumnStory1	[SectionProperty W14X730]; 
+set	InteriorColumnStory2	[SectionProperty W14X730]; 
+set	InteriorColumnStory3	[SectionProperty W14X730]; 
 
 
 # Define columns
