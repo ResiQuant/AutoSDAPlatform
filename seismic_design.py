@@ -72,9 +72,9 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     
     while perform_initial_sizing == True:
         
-        if drift_target_factor == 0.8:
+        if drift_target_factor < 1.00:
             # If the approx drift estimate is larger than that of OpenSees, re-start the
-            # member sizing but targeting 0.8*DRIFT_LIMIT
+            # member sizing but targeting drift_target_factor*DRIFT_LIMIT
             # (Re)initialize member sizes
             building_1.member_size = copy.deepcopy(initial_member)
             
@@ -134,12 +134,12 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         print("OpenSees story drifts: (%)")
         print(story_drift_OpenSees)
         
-        if drift_target_factor == 0.8:
+        if drift_target_factor < 1.00:
             # already repeated the sizing to a lower drift limit to stop trying
             perform_initial_sizing = False
         if story_drift_Approx < story_drift_OpenSees:
             # reduce drift target for approximate method
-            drift_target_factor = 0.8
+            drift_target_factor = 0.95*story_drift_Approx/story_drift_OpenSees
         else:
             # no need to modify the drift limit for approx method because the 
             # approximate method did not exceed OpenSees estimate

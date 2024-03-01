@@ -40,7 +40,7 @@ start_time = time.time()
 # ********************* Revision Ends Here *******************************
 
 # ********************* Single Building Case Ends Here *******************
-IDs = [10]
+IDs = [1002]
 for id in IDs:
     building_id = 'Building_' + str(id)
     print("Design for Building ID = ", building_id)

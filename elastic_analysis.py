@@ -179,7 +179,7 @@ class ElasticAnalysis(object):
                     tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
                     tclfile.write("\t%i%i%i" % (j, i+10, 1))  # Starting node
                     tclfile.write("\t%i%i%i" % (j+1, i+10, 1))  # Ending node
-                    tclfile.write("\t[expr 10*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified by 10 for rigid diaphragm instead of using constraints)
+                    tclfile.write("\t[expr 100*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified by 10 for rigid diaphragm instead of using constraints)
                     tclfile.write("\t$Es")  # Young's modulus of steel material
                     tclfile.write("\t[lindex $BeamLevel%i 6]" % i)  # Moment of inertia of beam section
                     tclfile.write("\t$LinearTransf; \n")  # Geometric transformation
@@ -225,7 +225,7 @@ class ElasticAnalysis(object):
                     # Determine whether the column is interior or exterior column
                     # This would affect the column section size
                     if 1 < j < building.geometry['number of X bay'] + 1:
-                        tclfile.write("\t[lindex $InteriorColumnStory%i 2]" % i)  # Area of section
+                        tclfile.write("\t[expr 100*[lindex $InteriorColumnStory%i 2]]" % i)  # Area of section
                         tclfile.write("\t$Es")  # Young's modulus of steel material
                         tclfile.write("\t[lindex $InteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     else:
