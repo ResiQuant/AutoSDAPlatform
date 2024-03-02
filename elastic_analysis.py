@@ -229,7 +229,7 @@ class ElasticAnalysis(object):
                         tclfile.write("\t$Es")  # Young's modulus of steel material
                         tclfile.write("\t[lindex $InteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     else:
-                        tclfile.write("\t[lindex $ExteriorColumnStory%i 2]" % i)  # Area of section
+                        tclfile.write("\t[expr 100*[lindex $ExteriorColumnStory%i 2]]" % i)  # Area of section
                         tclfile.write("\t$Es")
                         tclfile.write("\t[lindex $ExteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation
