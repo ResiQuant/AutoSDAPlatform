@@ -91,7 +91,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
             # Read elastic analysis drift
             building_1.read_story_drift()
 
-        # Optimize memeber sizes with an approxiamte drift estimation method
+        # Optimize member sizes with an approxiamte drift estimation method
         while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
                <= drift_target_factor*building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):
             
@@ -114,6 +114,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
             building_1.calculate_story_drift_approx()
     
             iteration = iteration + 1
+            
         # Assign the last member size to building instance
         building_1.member_size = copy.deepcopy(last_member)
         building_1.calculate_story_drift_approx()
@@ -152,6 +153,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
     iteration = 0
     # Perform the optimization process
     last_member = copy.deepcopy(building_1.member_size)
+    building_1.continue_drift_opt_flag = True # make sure it checks drifts with OpenSees at least once
     
     while (np.max(building_1.elastic_response['story drift']) * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR \
             <= building_1.DRIFT_LIMIT/building_1.elf_parameters['rho']) and (building_1.continue_drift_opt_flag == True):

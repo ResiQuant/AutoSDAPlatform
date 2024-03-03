@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import shutil
+import time
 
 # #########################################################################
 #              Generate Nonlinear OpenSees model (write .tcl files)       #
@@ -32,7 +33,7 @@ class NonlinearAnalysis(object):
     (16) define pushover loading pattern
     """
 
-    def __init__(self, building, column_set, beam_set, connection_set, analysis_type):
+    def __init__(self, building, column_set, beam_set, connection_set, analysis_type, OpenSees_path):
         """
         This function is used to call all methods to write .tcl files required for nonlinear analysis OpenSees model
         :param building: a class defined in "building_information.py" file
@@ -58,14 +59,12 @@ class NonlinearAnalysis(object):
 
         # Change the working directory to the target building folder
         if not os.path.exists(building.directory['building nonlinear model']):
-            os.makedirs(building.directory['building nonlinear model'])
-        os.chdir(building.directory['building nonlinear model'])
+            os.mkdir(building.directory['building nonlinear model'])
         # Change the working directory to the desired folder (EigenValueAnalysis, PushoverAnalysis, or DynamicAnalysis)
-        target_folder = building.directory['building nonlinear model'] / analysis_type
+        target_folder = os.path.join(building.directory['building nonlinear model'], analysis_type)
         if not os.path.exists(target_folder):
-            os.makedirs(target_folder)
-        os.chdir(target_folder)
-
+            os.mkdir(target_folder)
+        
         # Call methods to write .tcl files for the building
         # Nonlinear model for different purpose might require different .tcl files (different methods)
         self.write_nodes(building, column_set, beam_set)
@@ -105,7 +104,7 @@ class NonlinearAnalysis(object):
         :param beam_set: a list[x][z] and each element is a class defined in "beam_component.py"
         :return: a .tcl file
         """
-        with open('DefineNodes2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodes2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define all nodes \n")  # Introduce the file usage
             tclfile.write("# Units: inch\n\n\n")  # Explain the units
 
@@ -191,7 +190,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py"
         :return: a .tcl file
         """
-        with open('DefineFixities2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineFixities2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define the fixity at all column bases \n\n\n")
             tclfile.write("# Defining fixity at column base \n")
             for j in range(1, building.geometry['number of X bay']+2):
@@ -207,7 +206,7 @@ class NonlinearAnalysis(object):
         :return: a .tcl file
         """
         # Create a .tcl file to write floor constraint, i.e., equal DOF
-        with open('DefineFloorConstraint2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineFloorConstraint2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define floor constraint \n")
             tclfile.write("# Nodes at same floor level have identical lateral displacement\n")
             tclfile.write("# Select mid right node of each panel zone as the constrained node\n\n")
@@ -233,7 +232,7 @@ class NonlinearAnalysis(object):
         :return: a .tcl file
         """
         material_tag = 70001
-        with open('DefineBeamHingeMaterials2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeamHingeMaterials2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam hinge material models\n\n\n")
             for i in range(2, building.geometry['number of story']+2):  # i is floor level number (no beam on ground)
                 for j in range(1, building.geometry['number of X bay']+1):  # j is bay number (1 for leftmost bay)
@@ -276,7 +275,7 @@ class NonlinearAnalysis(object):
         :return: a .tcl file
         """
         material_tag = 60001
-        with open('DefineColumnHingeMaterials2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumnHingeMaterials2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define column hinge material models\n\n\n")
             for i in range(1, building.geometry['number of story']+1):  # i is story number (from 1)
                 for j in range(1, building.geometry['number of X bay']+2):  # j is pier number (1 for leftmost pier)
@@ -317,7 +316,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefineBeams2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeams2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam elements \n\n\n")
             tclfile.write("# Define beam section sizes \n")
             for i in range(2, building.geometry['number of story']+2):  # i is the floor level (from 2)
@@ -352,7 +351,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefineColumns2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumns2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define columns \n\n\n")
 
             # Define exterior column sizes
@@ -410,7 +409,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefineBeamHinges2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeamHinges2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam hinges \n\n\n")
 
             tclfile.write("# Define beam hinges using rotational spring with modified IMK material\n")
@@ -437,7 +436,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefineColumnHinges2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumnHinges2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file wil be used to define column hinges\n\n\n")
             for i in range(1, building.geometry['number of story']+1):  # i refers the story number
                     tclfile.write("# Column hinges at bottom of story%i\n" % i)
@@ -488,7 +487,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefineMasses2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineMasses2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define all nodal masses \n\n")
 
             # Write values for floor weights, tributary mass ratio, and nodal mass
@@ -519,7 +518,7 @@ class NonlinearAnalysis(object):
         :param building: a class defined in "building_information.py" file
         :return: a .tcl file
         """
-        with open('DefinePanelZoneElements.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefinePanelZoneElements.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define elements in panel zones \n\n")
             tclfile.write("# Procedure used to produce panel zone elements:\n")
             for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
@@ -533,7 +532,7 @@ class NonlinearAnalysis(object):
 
     def write_panel_zone_springs(self, building, column_set, beam_set, connection_set):
         # Create a .tcl file that defines the springs involved in panel zones
-        with open('DefinePanelZoneSprings.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefinePanelZoneSprings.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define springs in panel zone \n\n")
             tclfile.write("# Procedure command:\n")
             tclfile.write("# rotPanelZone2D\teleID\tnodeR\tnodeC\tE\tFy\tdc\tbf_c\ttf_c\ttp\tdb\tRy\tas\n\n")
@@ -562,7 +561,7 @@ class NonlinearAnalysis(object):
 
     def write_gravity_load(self, building):
         # Create a .tcl file to write gravity load: 1.00 DL + 0.25 LL
-        with open('DefineGravityLoads2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineGravityLoads2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define expected gravity loads\n\n\n")
 
             # Assign the beam dead load values
@@ -623,7 +622,7 @@ class NonlinearAnalysis(object):
 
     def write_pushover_loading(self, building):
         # Create a .tcl file to write lateral pushover loading
-        with open('DefinePushoverLoading2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefinePushoverLoading2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define pushover loading\n\n\n")
             tclfile.write("pattern\tPlain\t200\tLinear\t{\n\n")
             tclfile.write("# Pushover pattern\n")
@@ -638,7 +637,7 @@ class NonlinearAnalysis(object):
 
     def write_base_reaction_recorder(self, building):
         # Create a .tcl file to write the recorders for base reactions
-        with open('DefineBaseReactionRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineBaseReactionRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define base node reaction recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/BaseReactions\n\n")
 
@@ -660,7 +659,7 @@ class NonlinearAnalysis(object):
 
     def write_beam_hinge_recorder(self, building):
         # Create a .tcl file to record beam hinge forces and deformation
-        with open('DefineBeamHingeRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeamHingeRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define beam hinge force-deformation recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/BeamHingeMoment\n\n")
 
@@ -687,7 +686,7 @@ class NonlinearAnalysis(object):
 
     def write_column_hinge_recorder(self, building):
         # Create a .tcl file to record column hinge forces and deformations
-        with open('DefineColumnHingeRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumnHingeRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define column hinge force-deformation recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/ColumnHingeMoment\n\n")
 
@@ -714,7 +713,7 @@ class NonlinearAnalysis(object):
 
     def write_beam_force_recorder(self, building):
         # Create a .tcl file to write beam element forces recorder for output
-        with open('DefineGlobalBeamForceRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineGlobalBeamForceRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define global beam force recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/GlobalBeamForces\n\n")
             tclfile.write("# X-Direction beam element global force recorders\n")
@@ -726,7 +725,7 @@ class NonlinearAnalysis(object):
 
     def write_column_force_recorder(self, building):
         # Create a .tcl file to write column element forces recorder for output
-        with open('DefineGlobalColumnForceRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineGlobalColumnForceRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define global column force recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/GlobalBeamForces\n\n")
             tclfile.write("# Column element global force recorders\n")
@@ -739,7 +738,7 @@ class NonlinearAnalysis(object):
 
     def write_node_displacement_recorder(self, building):
         # Create a .tcl file to write the node displacements recorder for output
-        with open('DefineNodeDisplacementRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodeDisplacementRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define node displacement recorders\n\n\n")
             tclfile.write("cd\t$baseDir/$dataDir/NodeDisplacements\n\n")
             for i in range(1, building.geometry['number of story']+2):
@@ -753,7 +752,7 @@ class NonlinearAnalysis(object):
 
     def write_story_drift_recorder(self, building, analysis_type):
         # Create a .tcl file to write story drift recorder for output
-        with open('DefineStoryDriftRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineStoryDriftRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define story drift recorders\n\n\n")
 
             if analysis_type == 'PushoverAnalysis':
@@ -788,7 +787,7 @@ class NonlinearAnalysis(object):
 
     def write_node_acceleration_recorder(self, building):
         # Create a .tcl file to record absolute node acceleration
-        with open('DefineNodeAccelerationRecorders2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodeAccelerationRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define node acceleration recorders\n\n\n")
             tclfile.write("cd $baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/NodeAccelerations\n\n")
             for i in range(1, building.geometry['number of story']+2):
@@ -802,7 +801,7 @@ class NonlinearAnalysis(object):
 
     def write_damping(self, building):
         # Create a .tcl file to define damping for dynamic analysis
-        with open('DefineDamping2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineDamping2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define damping\n\n")
 
             tclfile.write("# A damping ratio of 2% is used for steel buildings\n")
@@ -845,7 +844,7 @@ class NonlinearAnalysis(object):
 
     def write_dynamic_analysis_parameters(self, building):
         # Create a .tcl file to define all parameters pertinent to dynamic analysis solver
-        with open('DefineDynamicAnalysisParameters2DModel.tcl', 'w') as tclfile:
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineDynamicAnalysisParameters2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define analysis parameters relevant to dynamic solver\n\n\n")
             tclfile.write("set\tNStories\t%i; \n" % building.geometry['number of story'])
             # The height shall be converted from ft to inch
@@ -869,17 +868,13 @@ class NonlinearAnalysis(object):
                               options: 'EigenValueAnalysis', 'PushoverAnalysis', 'DynamicAnalysis'
         :return:
         """
-        # Change the working directory to the folder where baseline .tcl files are stored
-        source_dir = building.directory['baseline files nonlinear'] / analysis_type
-        os.chdir(source_dir)
         # Copy all baseline .tcl files to building model directory
+        source_dir = os.path.join(building.directory['baseline files nonlinear'], analysis_type)
         for _, _, files in os.walk(source_dir):
             for file in files:
-                target_file = building.directory['building nonlinear model'] / analysis_type / file
-                shutil.copy(file, target_file)
-        # Remember to change the working directory to building model directory
-        os.chdir(building.directory['building nonlinear model'] / analysis_type)
-
+                target_file = os.path.join(building.directory['building nonlinear model'], file)
+                shutil.copy(os.path.join(source_dir, file), target_file)
+        
         # Update necessary information in .tcl files for different analysis
         if analysis_type == 'EigenValueAnalysis':
             old_mode = 'set nEigenL 4'
@@ -891,26 +886,29 @@ class NonlinearAnalysis(object):
                 # This is to change the number of desired mode
                 new_mode = 'set nEigenL 3'
                 # Releast the equal DOF constraints for buildings with less than 3 stories
-                with open('Model.tcl', 'r') as file:
+                with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'r') as file:
                     content = file.read()
                 new_content = content.replace('source DefineFloorConstraint2DModel.tcl',
                                               '# source DefineFloorConstraint2DModel.tcl')
-                with open('Model.tcl', 'w') as file:
+                with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'w') as file:
                     file.write(new_content)
             # This is to change the node tag to record eigen vector
             old_string = '**EIGENVECTOR_NODE**'
             new_string = '1110'
             for floor in range(1, building.geometry['number of story']+1):
                 new_string += (' %i%i%i%i' % (1, floor+1, 1, 1))
-            with open('EigenValueAnalysis.tcl', 'r') as file:
+            with open(os.path.join(building.directory['building nonlinear model'], 'EigenValueAnalysis.tcl'), 'r') as file:
                 content = file.read()
             new_content = content.replace(old_mode, new_mode)
             new_content = new_content.replace(old_string, new_string)
-            with open('EigenValueAnalysis.tcl', 'w') as file:
+            with open(os.path.join(building.directory['building nonlinear model'], 'EigenValueAnalysis.tcl'), 'w') as file:
                 file.write(new_content)
 
             # Perform Eigen Analysis to obtain the periods which will be necessary for raleigh damping in dynamic part
-            os.system('OpenSees Model.tcl')
+            os.chdir(os.path.join(building.directory['building nonlinear model']))        
+            os.system(OpenSees_path + " Model.tcl")
+            time.sleep(1) # add delay to allow creation of files before trying to fetch them
+            os.chdir(building.base_directory)
 
         # Update pushover parameters contained Model.tcl when performing pushover analysis
         elif analysis_type == 'PushoverAnalysis':
@@ -918,11 +916,11 @@ class NonlinearAnalysis(object):
             old_string = ['**ControlNode**', '**ControlDOF**', '**DisplacementIncrement**', '**DisplacementMaximum**']
             new_string = ['%i%i%i%i' % (1, building.geometry['number of story']+1, 1, 1), '%i' % 1, '0.01',
                           '%.2f' % (0.1*building.geometry['floor height'][-1]*12)]  # DisplamentMaximum should be in inch.
-            with open('Model.tcl', 'r') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'r') as file:
                 content = file.read()
             for indx in range(len(old_string)):
                 content = content.replace(old_string[indx], new_string[indx])
-            with open('Model.tcl', 'w') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'w') as file:
                 file.write(content)
 
         # Update Model.tcl and RunIDA2DModel.tcl files for dynamic analysis
@@ -930,26 +928,26 @@ class NonlinearAnalysis(object):
             # This is to update periods for rayleigh damping
             old_periods = ['**firstModePeriod**', '**thirdModePeriod**']
             # The path to Eigen value analysis results
-            periods_dir = building.directory['building nonlinear model'] / 'EigenValueAnalysis' / 'EigenAnalysisOutput'
+            periods_dir = os.path.join(building.directory['building nonlinear model'], 'EigenValueAnalysis', 'EigenAnalysisOutput')
             # Read the periods from .out files generated by Eigen value analysis
             os.chdir(periods_dir)
             periods = np.loadtxt('Periods.out')
             # Update period variables in Model.tcl
             os.chdir(building.directory['building nonlinear model'] / analysis_type)
-            with open('Model.tcl', 'r') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'r') as file:
                 content = file.read()
             content = content.replace(old_periods[0], str(periods[0]))  # First-mode period
             content = content.replace(old_periods[1], str(periods[2]))  # Third-mode period
             # Write the updated content into Model.tcl
-            with open('Model.tcl', 'w') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'w') as file:
                 file.write(content)
             # Update dynamic parameters in RunIDA2DModel.tcl
-            with open('RunIDA2DModel.tcl', 'r') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'RunIDA2DModel.tcl'), 'r') as file:
                 content = file.read()
             old_string = ['**NumberOfGroundMotions**', '**IntensityScales**', '**MCEScaleFactor**']
             new_string = [240, 100, 1.0]
             for indx in range(len(old_string)):
                 content = content.replace(old_string[indx], str(new_string[indx]))
             # Write the new content back into RunIDA2DModel.tcl
-            with open('RunIDA2DModel.tcl', 'w') as file:
+            with open(os.path.join(building.directory['building nonlinear model'],'RunIDA2DModel.tcl'), 'w') as file:
                 file.write(content)

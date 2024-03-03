@@ -225,11 +225,11 @@ class ElasticAnalysis(object):
                     # Determine whether the column is interior or exterior column
                     # This would affect the column section size
                     if 1 < j < building.geometry['number of X bay'] + 1:
-                        tclfile.write("\t[expr 100*[lindex $InteriorColumnStory%i 2]]" % i)  # Area of section
+                        tclfile.write("\t[expr 1*[lindex $InteriorColumnStory%i 2]]" % i)  # Area of section
                         tclfile.write("\t$Es")  # Young's modulus of steel material
                         tclfile.write("\t[lindex $InteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     else:
-                        tclfile.write("\t[expr 100*[lindex $ExteriorColumnStory%i 2]]" % i)  # Area of section
+                        tclfile.write("\t[expr 1*[lindex $ExteriorColumnStory%i 2]]" % i)  # Area of section
                         tclfile.write("\t$Es")
                         tclfile.write("\t[lindex $ExteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation
