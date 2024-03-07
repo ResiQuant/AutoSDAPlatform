@@ -124,16 +124,16 @@ def seismic_design(building_id, base_directory, autoSDA_directory):
         building_1.read_story_drift()
         story_drift_OpenSees = np.max(building_1.elastic_response['story drift'] * building_1.elf_parameters['Cd'] * building_1.RBS_STIFFNESS_FACTOR * 100)
         
-        print('')
-        print('DRIFT LIMIT (%) = '+str(building_1.DRIFT_LIMIT*100))
-        print('')
-        print('Number of stories: (#)')
-        print(building_1.geometry['number of story'])
-        print("Approx. story drifts: (%)")
-        print(story_drift_Approx)  
-        print('')
-        print("OpenSees story drifts: (%)")
-        print(story_drift_OpenSees)
+        # print('')
+        # print('DRIFT LIMIT (%) = '+str(building_1.DRIFT_LIMIT*100))
+        # print('')
+        # print('Number of stories: (#)')
+        # print(building_1.geometry['number of story'])
+        # print("Approx. story drifts: (%)")
+        # print(story_drift_Approx)  
+        # print('')
+        # print("OpenSees story drifts: (%)")
+        # print(story_drift_OpenSees)
         
         if drift_target_factor < 1.00:
             # already repeated the sizing to a lower drift limit to stop trying

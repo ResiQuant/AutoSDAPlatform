@@ -61,15 +61,15 @@ class NonlinearAnalysis(object):
         if not os.path.exists(building.directory['building nonlinear model']):
             os.mkdir(building.directory['building nonlinear model'])
         # Change the working directory to the desired folder (EigenValueAnalysis, PushoverAnalysis, or DynamicAnalysis)
-        target_folder = os.path.join(building.directory['building nonlinear model'], analysis_type)
-        if not os.path.exists(target_folder):
-            os.mkdir(target_folder)
+        # target_folder = os.path.join(building.directory['building nonlinear model'], analysis_type)
+        # if not os.path.exists(target_folder):
+        #     os.mkdir(target_folder)
         
         # Call methods to write .tcl files for the building
         # Nonlinear model for different purpose might require different .tcl files (different methods)
         self.write_nodes(building, column_set, beam_set)
         self.write_fixities(building)
-        self.write_floor_constraint(building)
+        # self.write_floor_constraint(building) # do not use rigid diaphragm constraint due to numerical issues caused and no better result
         self.write_beam_hinge_material(building, beam_set)
         self.write_column_hinge_material(building, column_set)
         self.write_beam(building)
@@ -80,7 +80,7 @@ class NonlinearAnalysis(object):
         self.write_panel_zone_elements(building)
         self.write_panel_zone_springs(building, column_set, beam_set, connection_set)
         self.write_gravity_load(building)
-        self.copy_baseline_eigen_files(building, analysis_type)
+        self.copy_baseline_eigen_files(building, analysis_type, OpenSees_path)
         if analysis_type == 'PushoverAnalysis':
             self.write_base_reaction_recorder(building)
             self.write_beam_hinge_recorder(building)
@@ -152,7 +152,7 @@ class NonlinearAnalysis(object):
             # Write the nodes for leaning column
             tclfile.write("# Define nodes for leaning column \n")
             for i in range(1, building.geometry['number of story']+2):
-                tclfile.write("node\t %i%i" % (building.geometry['number of X bay']+2, i))  # Node label
+                tclfile.write("node\t %i%i20" % (building.geometry['number of X bay']+2, i))  # Node label
                 tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
                 if i <= 2:
                     tclfile.write("\t[expr %i*$FirstStory+0*$TypicalStory];" % (i-1))  # Y coordinate
@@ -167,7 +167,7 @@ class NonlinearAnalysis(object):
             tclfile.write("# Define extra nodes needed to define leaning column springs \n")
             for i in range(2, building.geometry['number of story']+2):
                 # The node below floor level
-                tclfile.write("node\t%i%i%i" % (building.geometry['number of X bay']+2, i, 2))  # Node label
+                tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 2))  # Node label
                 tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 1))  # X coordinate
                 tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
                 tclfile.write("\t# Node below floor level %i\n" % i)
@@ -175,7 +175,7 @@ class NonlinearAnalysis(object):
                 # because no leaning column above roof
                 if i < building.geometry['number of story']+1:
                     # The node above floor level
-                    tclfile.write("node\t%i%i%i" % (building.geometry['number of X bay']+2, i, 4))  # Nodel label
+                    tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 4))  # Nodel label
                     tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
                     tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
                     tclfile.write("\t# Node above floor level %i\n" % i)
@@ -194,9 +194,9 @@ class NonlinearAnalysis(object):
             tclfile.write("# This file will be used to define the fixity at all column bases \n\n\n")
             tclfile.write("# Defining fixity at column base \n")
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("fix\t%i%i%i%i\t1\t1\t1; \n" % (j, 1, 1, 0))
+                tclfile.write("fix\t%i%i%i%i\t1\t1\t1; \n" % (j, 1+10, 1, 0))
             # Leaning column base
-            tclfile.write("fix\t%i%i\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
+            tclfile.write("fix\t%i%i20\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
             tclfile.write("puts \"All column base fixities have been defined\"")
 
     def write_floor_constraint(self, building):
@@ -215,11 +215,11 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):  # i is floor level
                 tclfile.write("# Level %i \n" % i)
                 for j in range(2, building.geometry['number of X bay']+2):  # j is bay number
-                    tclfile.write("equalDOF\t%i%i11\t%i%i11\t$ConstrainDOF;" % (1, i, j, i))
+                    tclfile.write("equalDOF\t%i%i11\t%i%i11\t$ConstrainDOF;" % (1, i+10, j, i+10))
                     tclfile.write("\t# Pier 1 to Pier %i\n" % j)
                 # Include the leaning column nodes to floor constraint
                 tclfile.write("equalDOF\t%i%i%i%i\t%i%i\t$ConstrainDOF;"
-                              % (1, i, 1, 1,
+                              % (1, i+10, 1, 1,
                                  building.geometry['number of X bay']+2, i))
                 tclfile.write("\t#Pier 1 to Leaning column\n\n")
             tclfile.write("puts \"Floor constraint defined\"")
@@ -327,20 +327,20 @@ class NonlinearAnalysis(object):
                 # Beam elements in frame
                 for j in range(1, building.geometry['number of X bay']+1):  # j is the bay number
                     tclfile.write("element\telasticBeamColumn")  # elastic beam-column command
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))  # Beam element tag
-                    tclfile.write("\t%i%i%i%i" % (j, i, 1, 5))  # Starting node
-                    tclfile.write("\t%i%i%i%i" % (j+1, i, 1, 3))  # Ending node
-                    tclfile.write("\t[lindex $BeamLevel%i 2]" % i)  # Area of beam section
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 5))  # Starting node
+                    tclfile.write("\t%i%i%i%i" % (j+1, i+10, 1, 3))  # Ending node
+                    tclfile.write("\t[expr 100*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified axial stiffness for diaphragm action)
                     tclfile.write("\t$Es")  # Young's modulus of steel material
                     tclfile.write("\t[expr ($n+1.0)/$n*[lindex $BeamLevel%i 6]]" % i)  # Modified moment of inertia
                     tclfile.write("\t$LinearTransf; \n")  # Geometric transformation
 
                 # Truss elements connecting frame and leaning column
                 tclfile.write("element\ttruss")  # elastic beam-column command
-                tclfile.write("\t%i%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i, 1,
+                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
                                                   building.geometry['number of X bay']+2, i))
-                tclfile.write("\t%i%i%i%i" % (building.geometry['number of X bay']+1, i, 1, 1))  # Start node in frame
-                tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
+                tclfile.write("\t%i%i%i%i" % (building.geometry['number of X bay']+1, i+10, 1, 1))  # Start node in frame
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
                 tclfile.write("\t$AreaRigid\t$TrussMatID; \n")  # Large area and truss element material
                 tclfile.write("\n")
             tclfile.write("puts \"Beams defined\"")
@@ -373,9 +373,9 @@ class NonlinearAnalysis(object):
                 # Columns in frame
                 for j in range(1, building.geometry['number of X bay']+2):  # j is bay number
                     tclfile.write("element\telasticBeamColumn")  # element command
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, j, i, 1, j, i+1, 1))  # element tag
-                    tclfile.write("\t%i%i%i%i" % (j, i, 1, 4))  # starting node
-                    tclfile.write("\t%i%i%i%i" % (j, i+1, 1, 6))  # ending node
+                    tclfile.write("\t%i%i%i%i%i" % (3, j, i, j, i+1))  # element tag
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 4))  # starting node
+                    tclfile.write("\t%i%i%i%i" % (j, (i+1)+10, 1, 6))  # ending node
                     # Determine whether the column is interior or exterior column
                     # this would affect the column section size
                     if 1 < j < building.geometry['number of X bay']+1:
@@ -391,15 +391,15 @@ class NonlinearAnalysis(object):
                 # Leaning column elements
                 tclfile.write("element\telasticBeamColumn")  # element command
                 if i == 1:
-                    tclfile.write("\t%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
-                                                      building.geometry['number of X bay']+2, i+1, 2))
-                    tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, i))
-                    tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+2, i+1, 2))
+                    tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
+                                                      building.geometry['number of X bay']+2, i+1))
+                    tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
                 else:
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i, 4,
-                                                        building.geometry['number of X bay']+2, i+1, 2))
-                    tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+2, i, 4))
-                    tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+2, i+1, 2))
+                    tclfile.write("\t%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i, 4,
+                                                        building.geometry['number of X bay']+2, i+1))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
                 tclfile.write("\t$AreaRigid\t$Es\t$IRigid\t$PDeltaTransf; \n\n")
             tclfile.write("puts \"Columns defined\"")
 
@@ -416,15 +416,15 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):  # i is the floor level (from 2)
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay'] + 1):  # j is the bay number
-                    tclfile.write("rotBeamSpring\t%i%i%i%i%i%i%i" % (7, j, i, 1, 1, 1, 5))  # element ID
-                    tclfile.write("\t%i%i%i%i" % (j, i, 1, 1))  # node on mid right of panel zone
-                    tclfile.write("\t%i%i%i%i" % (j, i, 1, 5))  # node on left end of beam element
+                    tclfile.write("rotBeamSpring\t%i%i%i%i%i" % (7, j, i+10, 1, 5))  # element ID
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))  # node on mid right of panel zone
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 5))  # node on left end of beam element
                     tclfile.write("\t$BeamHingeMaterialLevel%iBay%iTag" % (i, j))  # associated modified IMK material
                     tclfile.write("\t$StiffMatID;\n")  # stiff material ID
 
-                    tclfile.write("rotBeamSpring\t%i%i%i%i%i%i%i" % (7, j+1, i, 0, 9, 1, 3))  # element ID
-                    tclfile.write("\t%i%i%i%i" % (j+1, i, 0, 9))  # node on mid left of panel zone
-                    tclfile.write("\t%i%i%i%i" % (j+1, i, 1, 3))  # node on right end of beam element
+                    tclfile.write("rotBeamSpring\t%i%i%i%i%i" % (7, j+1, i+10, 9, 3))  # element ID
+                    tclfile.write("\t%i%i%i%i" % (j+1, i+10, 0, 9))  # node on mid left of panel zone
+                    tclfile.write("\t%i%i%i%i" % (j+1, i+10, 1, 3))  # node on right end of beam element
                     tclfile.write("\t$BeamHingeMaterialLevel%iBay%iTag" % (i, j))  # associated modified IMK material
                     tclfile.write("\t$StiffMatID;\n\n")  # stiff material ID
 
@@ -441,17 +441,17 @@ class NonlinearAnalysis(object):
             for i in range(1, building.geometry['number of story']+1):  # i refers the story number
                     tclfile.write("# Column hinges at bottom of story%i\n" % i)
                     for j in range(1, building.geometry['number of X bay']+2):  # j refers the column number
-                        tclfile.write("rotColumnSpring\t%i%i%i%i%i%i%i" % (6, j, i, 1, 0, 1, 4))  # element ID
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 0))  # Node on the ground
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 4))  # Node at the bottom of column element
+                        tclfile.write("rotColumnSpring\t%i%i%i%i%i" % (6, j, i+10, 0, 4))  # element ID
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 0))  # Node on the ground
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 4))  # Node at the bottom of column element
                         tclfile.write("\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))  # associated modified IMK
                         tclfile.write("\t$StiffMatID;\n")  # stiff material
                     tclfile.write("\n")
                     tclfile.write("# Column hinges at top of story%i\n" % i)
                     for j in range(1, building.geometry['number of X bay']+2):  # j refers the column number
-                        tclfile.write("rotColumnSpring\t%i%i%i%i%i%i%i" % (6, j, i+1, 1, 2, 1, 6))  # element ID
-                        tclfile.write("\t%i%i%i%i" % (j, i+1, 1, 2))  # Node on the ground
-                        tclfile.write("\t%i%i%i%i" % (j, i+1, 1, 6))  # Node at the bottom of column element
+                        tclfile.write("rotColumnSpring\t%i%i%i%i%i" % (6, j, i+1, 2, 6))  # element ID
+                        tclfile.write("\t%i%i%i%i" % (j, i+1+10, 1, 2))  # Node on the ground
+                        tclfile.write("\t%i%i%i%i" % (j, i+1+10, 1, 6))  # Node at the bottom of column element
                         tclfile.write("\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))  # associated modified IMK
                         tclfile.write("\t$StiffMatID;\n")  # stiff material
                     tclfile.write("\n")
@@ -459,10 +459,10 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
                 # Write the springs below floor level i
                 tclfile.write("rotLeaningCol")  # procedure command to create rotational spring of leaning column
-                tclfile.write("\t%i%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
-                                                  building.geometry['number of X bay']+2, i, 2))  # spring ID
-                tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, i))  # node at floor level
-                tclfile.write("\t%i%i%i\t$StiffMatID;"
+                tclfile.write("\t%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
+                                                  building.geometry['number of X bay']+2, i))  # spring ID
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # node at floor level
+                tclfile.write("\t%i%i%i20\t$StiffMatID;"
                               % (building.geometry['number of X bay']+2, i, 2))  # node below floor level
                 tclfile.write("\t# Spring below floor level %i \n" % i)  # comment to explain the location of the sprubg
 
@@ -470,11 +470,11 @@ class NonlinearAnalysis(object):
                 # If it is roof, no springs above the roof
                 if i < building.geometry['number of story']+1:
                     tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
-                    tclfile.write("\t%i%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
-                                                      building.geometry['number of X bay'], i, 4))  # Spring tag
-                    tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, i))  # Node at floor level
+                    tclfile.write("\t%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
+                                                      building.geometry['number of X bay'], i))  # Spring tag
+                    tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node at floor level
                     # Node above floor level
-                    tclfile.write("\t%i%i%i\t$StiffMatID;" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t%i%i%i20\t$StiffMatID;" % (building.geometry['number of X bay']+2, i, 4))
                     tclfile.write("\t# Spring above floor level %i \n" % i)
                 else:
                     pass
@@ -506,7 +506,7 @@ class NonlinearAnalysis(object):
                 tclfile.write("# Level%i \n" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
                     # Write mass for nodes in structural columns
-                    tclfile.write("mass\t%i%i%i%i" % (j, i, 1, 1))  # Nodal mass command and node tag
+                    tclfile.write("mass\t%i%i%i%i" % (j, i+10, 1, 1))  # Nodal mass command and node tag
                     tclfile.write("\t$NodalMassFloor%i" % i)  # Mass along X direction
                     tclfile.write("\t$Negligible\t$Negligible \n")  # Mass along Y and RotZ doesn't matter
                 tclfile.write("\n")
@@ -524,8 +524,8 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
                 tclfile.write("# Level%i \n" % i)
                 for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
-                    tclfile.write("elemPanelZone2D\t%i%i%i%i%i%i" % (8, 0, 0, j, i, 1))  # panel zone starting element tag
-                    tclfile.write("\t%i%i%i%i" % (j, i, 0, 1))  # first node in panel zone (top left corner)
+                    tclfile.write("elemPanelZone2D\t%i%i%i%i%i%i" % (8, 0, 0, j, i+10, 1))  # panel zone starting element tag
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 1))  # first node in panel zone (top left corner)
                     tclfile.write("\t$Es\t$PDeltaTransf\t$LinearTransf;  \n")
                 tclfile.write("\n")
             tclfile.write("puts \"Panel zone elements defined\"")
@@ -539,9 +539,9 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
-                    tclfile.write("rotPanelZone2D\t%i%i%i%i%i%i" % (9, j, i, 1, 0, 0))  # panel zone spring tag
-                    tclfile.write("\t%i%i%i%i" % (j, i, 0, 3))  # node tag at top right corner of panel zone
-                    tclfile.write("\t%i%i%i%i" % (j, i, 0, 4))  # node tag at top right corner of panel zone
+                    tclfile.write("rotPanelZone2D\t%i%i%i%i%i%i" % (9, j, i+10, 1, 0, 0))  # panel zone spring tag
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 3))  # node tag at top right corner of panel zone
+                    tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 4))  # node tag at top right corner of panel zone
                     tclfile.write("\t$Es\t$Fy")  # Young's modulus and Yielding stress
                     tclfile.write("\t%.2f" % column_set[i-2][j-1].section['d'])  # column depth
                     tclfile.write("\t%.2f" % column_set[i-2][j-1].section['bf'])  # column flange width
@@ -604,7 +604,7 @@ class NonlinearAnalysis(object):
                 tclfile.write("# Level%i\n" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
                     tclfile.write("eleLoad\t-ele")
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j + 1, i, 1))  # Beam element tag
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j + 1, i))  # Beam element tag
                     tclfile.write("\t-type\t-beamUniform")
                     tclfile.write("\t[expr -1.05*$BeamDeadLoadFloor%i - 0.25*$BeamLiveLoadFloor%i];\n"
                                   % (i, i))
@@ -613,7 +613,7 @@ class NonlinearAnalysis(object):
             # Gravity load on leaning column
             tclfile.write("# Define point loads on leaning column\n")
             for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i - "
+                tclfile.write("load\t%i%i20\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i - "
                               "0.25*$LeaningColumnLiveLoadFloor%i]\t0;\n"
                               % (building.geometry['number of X bay']+2, i, i, i))
             tclfile.write("\n}\n")
@@ -631,7 +631,7 @@ class NonlinearAnalysis(object):
                 for j in range(1, building.geometry['number of X bay']+2):  # Column number
                     load = building.seismic_force_for_strength['lateral story force'][i-2]\
                            / np.sum(building.seismic_force_for_strength['lateral story force'])
-                    tclfile.write("load\t%i%i%i%i\t%.3f\t0\t0;\n" % (j, i, 1, 1, load))
+                    tclfile.write("load\t%i%i%i%i\t%.3f\t0\t0;\n" % (j, i+10, 1, 1, load))
                 tclfile.write("\n")
             tclfile.write("}")
 
@@ -645,7 +645,7 @@ class NonlinearAnalysis(object):
             tclfile.write("# Vertical reactions\n")
             tclfile.write("recorder\tNode\t-file\tVerticalReactions.out\t-time\t-node")
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("\t%i%i%i%i" % (j, 1, 1, 0))
+                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0))
             tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, 1))
             tclfile.write("\t-dof\t2\treaction;\n\n")
 
@@ -653,7 +653,7 @@ class NonlinearAnalysis(object):
             tclfile.write("# X-Direction reactions\n")
             tclfile.write("recorder\tNode\t-file\tXReactions.out\t-time\t-node")
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("\t%i%i%i%i" % (j, 1, 1, 0))
+                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0))
             tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, 1))
             tclfile.write("\t-dof\t1\treaction;\n\n")
 
@@ -668,8 +668,8 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("recorder\tElement\t-file\tBeamHingeForcesLevel%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (7, j, i, 1, 1, 1, 5))
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (7, j+1, i, 0, 9, 1, 3))
+                    tclfile.write("\t%i%i%i%i%i" % (7, j, i+10, 1, 5))
+                    tclfile.write("\t%i%i%i%i%i" % (7, j+1, i+10, 9, 3))
                 tclfile.write("\tforce;\n")
             tclfile.write("\n")
 
@@ -679,8 +679,8 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("recorder\tElement\t-file\tBeamHingeForcesLevel%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (7, j, i, 1, 1, 1, 5))
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (7, j+1, i, 0, 9, 1, 3))
+                    tclfile.write("\t%i%i%i%i%i" % (7, j, i+10, 1, 5))
+                    tclfile.write("\t%i%i%i%i%i" % (7, j+1, i+10, 9, 3))
                 tclfile.write("\tdeformation;\n")
             tclfile.write("\n")
 
@@ -695,8 +695,8 @@ class NonlinearAnalysis(object):
             for i in range(1, building.geometry['number of story']+1):
                 tclfile.write("recorder\tElement\t-file\tColumnHingeForcesStory%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (6, j, i, 1, 0, 1, 4))
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (6, j, i+1, 1, 2, 1, 6))
+                    tclfile.write("\t%i%i%i%i%i" % (6, j, i+10, 0, 4))
+                    tclfile.write("\t%i%i%i%i%i" % (6, j, i+1+10, 2, 6))
                 tclfile.write("\tforce;\n")
             tclfile.write("\n")
 
@@ -706,8 +706,8 @@ class NonlinearAnalysis(object):
             for i in range(1, building.geometry['number of story']+1):
                 tclfile.write("recorder\tElement\t-file\tColumnHingeForcesStory%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (6, j, i, 1, 0, 1, 4))
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (6, j, i+1, 1, 2, 1, 6))
+                    tclfile.write("\t%i%i%i%i%i" % (6, j, i+10, 0, 4))
+                    tclfile.write("\t%i%i%i%i%i" % (6, j, i+1+10, 2, 6))
                 tclfile.write("\tdeformation;")
             tclfile.write("\n")
 
@@ -720,7 +720,7 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("recorder\tElement\t-file\tGlobalXBeamForcesLevel%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+1):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i+10, j+1, i))
                 tclfile.write("\tforce\n")
 
     def write_column_force_recorder(self, building):
@@ -732,7 +732,7 @@ class NonlinearAnalysis(object):
             for i in range(1, building.geometry['number of story']+1):  # i is story number
                 tclfile.write("recorder\tElement\t-file\tGlobalColumnForcesStory%i.out\t-time\t-ele" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, j, i, 1, j, i+1, 1))
+                    tclfile.write("\t%i%i%i%i%i" % (3, j, i+10, j, i+1))
                 tclfile.write("\tforce;\n")
             tclfile.write("\n")
 
@@ -745,9 +745,9 @@ class NonlinearAnalysis(object):
                 tclfile.write("recorder\tNode\t-file\tNodeDispLevel%i.out\t-time\t-node" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
                     if i == 1:
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 0))
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 0))
                     else:
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 1))
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))
                 tclfile.write("\t-dof\t1\tdisp;\n")
 
     def write_story_drift_recorder(self, building, analysis_type):
@@ -766,13 +766,13 @@ class NonlinearAnalysis(object):
                     tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
                 if analysis_type == 'DynamicAnalysis':
                     tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Story%i.out" % i)
-                # Always use nodes on column #1 to calculate story drift
+                # Always use nodes on column #2 to calculate story drift
                 if i == 1:
                     # Node tag at ground floor is different from those on upper stories
-                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (1, i, 1, 0))  # Node at bottom of current story
+                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 0))  # Node at bottom of current story
                 else:
-                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (1, i, 1, 1))  # Node at bottom of current story
-                tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (1, i+1, 1, 1))  # Node at top of current story
+                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 1))  # Node at bottom of current story
+                tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
                 tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
             # Write the story drift recorder for roof
@@ -781,8 +781,8 @@ class NonlinearAnalysis(object):
                 tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
             if analysis_type == 'DynamicAnalysis':
                 tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
-            tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (1, 1, 1, 0))
-            tclfile.write("\t-jNode\t%i%i%i%i" % (1, building.geometry['number of story']+1, 1, 1))
+            tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
+            tclfile.write("\t-jNode\t%i%i%i%i" % (2, building.geometry['number of story']+1+10, 1, 1))
             tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
     def write_node_acceleration_recorder(self, building):
@@ -794,9 +794,9 @@ class NonlinearAnalysis(object):
                 tclfile.write("recorder\tNode\t-file\tNodeAccLevel%i.out\t-timeSeries\t2\t-time\t-node" % i)
                 for j in range(1, building.geometry['number of X bay']+2):
                     if i == 1:
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 0))
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 0))
                     else:
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 1))
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))
                 tclfile.write("\t-dof\t1\taccel;\n")
 
     def write_damping(self, building):
@@ -821,14 +821,14 @@ class NonlinearAnalysis(object):
             tclfile.write("region\t1\t-ele")
             for i in range(2, building.geometry['number of story']+2):  # i is the floor level (from 2)
                 for j in range(1, building.geometry['number of X bay']+1):  # j is the bay number
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (2, j, i, 1, j+1, i, 1))  # Beam element tag
+                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j+1, i))  # Beam element tag
             tclfile.write("\t-rayleigh\t0.0\t0.0\t$alpha1\t0.0;\n")
 
             tclfile.write("# Assign damping to column elements\n")
             tclfile.write("region\t2\t-ele")
             for i in range(1, building.geometry['number of story']+1):  # i is story number
                 for j in range(1, building.geometry['number of X bay']+2):  # j is bay number
-                    tclfile.write("\t%i%i%i%i%i%i%i" % (3, j, i, 1, j, i+1, 1))  # element tag
+                    tclfile.write("\t%i%i%i%i%i" % (3, j, i, j, i+1))  # element tag
             tclfile.write("\t-rayleigh\t0.0\t0.0\t$alpha1\t0.0;\n")
 
             tclfile.write("# Assign damping to nodes\n")
@@ -836,9 +836,9 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 for j in range(1, building.geometry['number of X bay']+3):
                     if j == building.geometry['number of X bay']+2:
-                        tclfile.write("\t%i%i" % (j, i))
+                        tclfile.write("\t%i%i" % (j, i+10))
                     else:
-                        tclfile.write("\t%i%i%i%i" % (j, i, 1, 1))
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))
             tclfile.write("\t-rayleigh\t$alpha0\t0.0\t0.0\t0.0;\n\n")
             tclfile.write("puts \"Rayleigh damping defined\"")
 
@@ -853,13 +853,13 @@ class NonlinearAnalysis(object):
             tclfile.write("set\tFloorNodes\t[list")
             for i in range(1, building.geometry['number of story']+2):
                 if i == 1:
-                    tclfile.write("\t1110")
+                    tclfile.write("\t11110")
                 else:
-                    tclfile.write("\t%i%i%i%i" % (1, i, 1, 1))
+                    tclfile.write("\t%i%i%i%i" % (1, i+10, 1, 1))
             tclfile.write("];\n\n")
             tclfile.write("puts \"Dynamic analysis parameters defined\"")
 
-    def copy_baseline_eigen_files(self, building, analysis_type):
+    def copy_baseline_eigen_files(self, building, analysis_type, OpenSees_path):
         """
         Some .tcl files are fixed, i.e., no need to change for different OpenSees models.
         Therefore, just copy those .tcl files from the baseline folder
@@ -885,13 +885,13 @@ class NonlinearAnalysis(object):
             if building.geometry['number of story'] <= 3:
                 # This is to change the number of desired mode
                 new_mode = 'set nEigenL 3'
-                # Releast the equal DOF constraints for buildings with less than 3 stories
-                with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'r') as file:
-                    content = file.read()
-                new_content = content.replace('source DefineFloorConstraint2DModel.tcl',
-                                              '# source DefineFloorConstraint2DModel.tcl')
-                with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'w') as file:
-                    file.write(new_content)
+                # # Releast the equal DOF constraints for buildings with less than 3 stories (rigid diaphragm assumption not necessary)
+                # with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'r') as file:
+                #     content = file.read()
+                # new_content = content.replace('source DefineFloorConstraint2DModel.tcl',
+                #                               '# source DefineFloorConstraint2DModel.tcl')
+                # with open(os.path.join(building.directory['building nonlinear model'], 'Model.tcl'), 'w') as file:
+                #     file.write(new_content)
             # This is to change the node tag to record eigen vector
             old_string = '**EIGENVECTOR_NODE**'
             new_string = '1110'
@@ -928,12 +928,11 @@ class NonlinearAnalysis(object):
             # This is to update periods for rayleigh damping
             old_periods = ['**firstModePeriod**', '**thirdModePeriod**']
             # The path to Eigen value analysis results
-            periods_dir = os.path.join(building.directory['building nonlinear model'], 'EigenValueAnalysis', 'EigenAnalysisOutput')
+            periods_dir = os.path.join(building.directory['building nonlinear model'], 'EigenAnalysisOutput')
             # Read the periods from .out files generated by Eigen value analysis
             os.chdir(periods_dir)
             periods = np.loadtxt('Periods.out')
             # Update period variables in Model.tcl
-            os.chdir(building.directory['building nonlinear model'] / analysis_type)
             with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'r') as file:
                 content = file.read()
             content = content.replace(old_periods[0], str(periods[0]))  # First-mode period

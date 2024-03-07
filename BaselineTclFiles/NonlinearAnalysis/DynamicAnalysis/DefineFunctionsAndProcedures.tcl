@@ -101,39 +101,38 @@ proc NodesAroundPanelZone {ColPier Level XCoordinate YCoordinate PanelSize Maxim
 #                   15: right(positive) beam node
 #                   16: Bottom(negative) column node
 if {$Level == 1} {
-    node [format %s%s%s $ColPier $Level 10] [expr $XCoordinate] [expr $YCoordinate];
-    node [format %s%s%s $ColPier $Level 14] [expr $XCoordinate] [expr $YCoordinate];
+    node [format %s%s%s $ColPier [expr $Level+10] 10] [expr $XCoordinate] [expr $YCoordinate];
+    node [format %s%s%s $ColPier [expr $Level+10] 14] [expr $XCoordinate] [expr $YCoordinate];
 } else {
     set dc [expr ([lindex $PanelSize 0]) / 2.0];    
     set db [expr ([lindex $PanelSize 1]) / 2.0];
     
     # define nodes in X direction panel zone 
-    node [format %s%s%s $ColPier $Level 01] [expr $XCoordinate - $dc] [expr $YCoordinate + $db];
-    node [format %s%s%s $ColPier $Level 02] [expr $XCoordinate - $dc] [expr $YCoordinate + $db];
-    node [format %s%s%s $ColPier $Level 03] [expr $XCoordinate + $dc] [expr $YCoordinate + $db];
-    node [format %s%s%s $ColPier $Level 04] [expr $XCoordinate + $dc] [expr $YCoordinate + $db];
-    node [format %s%s%s $ColPier $Level 05] [expr $XCoordinate + $dc] [expr $YCoordinate - $db];
-    node [format %s%s%s $ColPier $Level 06] [expr $XCoordinate + $dc] [expr $YCoordinate - $db];
-    node [format %s%s%s $ColPier $Level 07] [expr $XCoordinate - $dc] [expr $YCoordinate - $db];
-    node [format %s%s%s $ColPier $Level 08] [expr $XCoordinate - $dc] [expr $YCoordinate - $db];
-    node [format %s%s%s $ColPier $Level 09] [expr $XCoordinate - $dc] $YCoordinate;
-    node [format %s%s%s $ColPier $Level 11] [expr $XCoordinate + $dc] $YCoordinate;
-    node [format %s%s%s $ColPier $Level 10] $XCoordinate [expr $YCoordinate + $db];
-    node [format %s%s%s $ColPier $Level 12] $XCoordinate [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 01] [expr $XCoordinate - $dc] [expr $YCoordinate + $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 02] [expr $XCoordinate - $dc] [expr $YCoordinate + $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 03] [expr $XCoordinate + $dc] [expr $YCoordinate + $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 04] [expr $XCoordinate + $dc] [expr $YCoordinate + $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 05] [expr $XCoordinate + $dc] [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 06] [expr $XCoordinate + $dc] [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 07] [expr $XCoordinate - $dc] [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 08] [expr $XCoordinate - $dc] [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 09] [expr $XCoordinate - $dc] $YCoordinate;
+    node [format %s%s%s $ColPier [expr $Level+10] 11] [expr $XCoordinate + $dc] $YCoordinate;
+    node [format %s%s%s $ColPier [expr $Level+10] 10] $XCoordinate [expr $YCoordinate + $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 12] $XCoordinate [expr $YCoordinate - $db];
     
     # define nodes for column hinge
-    node [format %s%s%s $ColPier $Level 16] $XCoordinate [expr $YCoordinate - $db];
+    node [format %s%s%s $ColPier [expr $Level+10] 16] $XCoordinate [expr $YCoordinate - $db];
     if {$Level != $MaximumFloor} {
-        node [format %s%s%s $ColPier $Level 14] $XCoordinate [expr $YCoordinate + $db];}
+        node [format %s%s%s $ColPier [expr $Level+10] 14] $XCoordinate [expr $YCoordinate + $db];}
         
     # define nodes for xBeam hinge
     if {$ColPier != 1} {
-        node [format %s%s%s $ColPier $Level 13] [expr $XCoordinate - $dc] $YCoordinate;}
+        node [format %s%s%s $ColPier [expr $Level+10] 13] [expr $XCoordinate - $dc] $YCoordinate;}
     if {$ColPier != $MaximumCol} {
-        node [format %s%s%s $ColPier $Level 15] [expr $XCoordinate + $dc] $YCoordinate;}
+        node [format %s%s%s $ColPier [expr $Level+10] 15] [expr $XCoordinate + $dc] $YCoordinate;}
 }
 }
-
 
 ##############################################################################################################################
 #                                    Define Element within Pane Zone for 2D Frame                                            #

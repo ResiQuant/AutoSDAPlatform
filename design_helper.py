@@ -43,7 +43,7 @@ def create_column_set(building, elastic_demand, steel):
             one_story_columns.append(temp_column)
             # Check the flag of each column
             if not temp_column.check_flag():
-                sys.stderr.write('column_%s%s is not feasible!!!\n' % (story, column_no))
+                #sys.stderr.write('column_%s%s is not feasible!!!\n' % (story, column_no))
                 not_feasible_column.append([story, column_no])
         column_set.append(one_story_columns)
     return column_set, not_feasible_column
@@ -74,7 +74,7 @@ def create_beam_set(building, elastic_demand, steel):
             one_story_beams.append(temp_beam)
             # Check the flag of each beam
             if not temp_beam.check_flag():
-                sys.stderr.write('beam_%s%s is not feasible!!!\n' % (story, bay))
+                #sys.stderr.write('beam_%s%s is not feasible!!!\n' % (story, bay))
                 not_feasible_beam.append([story, bay])
         beam_set.append(one_story_beams)
     return beam_set, not_feasible_beam
@@ -157,7 +157,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                     
             one_story_connection.append(temp_connection)
             if not temp_connection.check_flag():
-                sys.stderr.write('connection_%s%s is not feasible!!!\n' % (story, connection_no))
+                #sys.stderr.write('connection_%s%s is not feasible!!!\n' % (story, connection_no))
                 not_feasible_connection.append([story, connection_no])
             #   sys.exit(1)
         connection_set.append(one_story_connection)

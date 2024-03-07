@@ -52,7 +52,7 @@ class ElasticAnalysis(object):
         # Call methods to write .tcl files for the building
         self.write_nodes(building)
         self.write_fixities(building)
-        self.write_floor_constraint(building)
+        # self.write_floor_constraint(building) # do not use rigid diaphragm constraint due to numerical issues caused and no better result
         self.write_beam(building)
         self.write_column(building)
         self.write_leaning_column_spring(building)
