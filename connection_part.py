@@ -46,7 +46,8 @@ class Connection(object):
     """
 
     def __init__(self, connection_type, steel, beam_dead_load, beam_live_load, span,
-                 STRONG_COLUMN_WEAK_BEAM_RATIO, left_beam=None, right_beam=None, top_column=None, bottom_column=None):
+                 STRONG_COLUMN_WEAK_BEAM_RATIO, left_beam=None, right_beam=None, top_column=None, bottom_column=None,
+                 verbose=False):
         """
         This function initializes all attributes of Connection class.
         :param connection_type: a string which denotes the type of beam-column connection.
@@ -84,18 +85,18 @@ class Connection(object):
         self.flag = None
 
         # Call methods to initialize the attributes listed above
-        self.check_column_beam(connection_type, left_beam, right_beam, top_column, bottom_column)
+        self.check_column_beam(connection_type, left_beam, right_beam, top_column, bottom_column, verbose)
         self.extract_reduced_beam_section(connection_type, left_beam, right_beam)
         self.compute_probable_moment_RBS(connection_type, steel, left_beam, right_beam)
         self.compute_shear_force_RBS(connection_type, beam_dead_load, beam_live_load, span, bottom_column)
         self.compute_probable_moment_column_face(connection_type)
         self.compute_plastic_moment(connection_type, steel, left_beam, right_beam)
-        self.check_moment_column_face(connection_type)
-        self.check_shear_strength(connection_type, beam_dead_load, beam_live_load, left_beam, right_beam)
-        self.check_column_beam_relationships(connection_type, steel, left_beam, right_beam, top_column, bottom_column, STRONG_COLUMN_WEAK_BEAM_RATIO)
+        self.check_moment_column_face(connection_type, verbose)
+        self.check_shear_strength(connection_type, beam_dead_load, beam_live_load, left_beam, right_beam, verbose)
+        self.check_column_beam_relationships(connection_type, steel, left_beam, right_beam, top_column, bottom_column, STRONG_COLUMN_WEAK_BEAM_RATIO, verbose)
         self.determine_doubler_plate(connection_type, steel, left_beam, right_beam, bottom_column, top_column)
 
-    def check_column_beam(self, connection_type, left_beam, right_beam, top_column, bottom_column):
+    def check_column_beam(self, connection_type, left_beam, right_beam, top_column, bottom_column, verbose):
         """
         This method is used to check whether the column and beam depth (weight) is feasible for
         prequalified connection. (step 1 in ANSI Section 5.8)
@@ -115,7 +116,8 @@ class Connection(object):
                     and top_column_depth <= 36 and bottom_column_depth <= 36):
                 self.is_feasible['geometry limits'] = True
             else:
-                sys.stderr.write('Beam and column depth & weight are not acceptable!\n')
+                if verbose:
+                    sys.stderr.write('Beam and column depth & weight are not acceptable!\n')
                 self.is_feasible['geometry limits'] = False
         elif connection_type == 'top exterior':
             # Connection only has one beam and one column
@@ -125,7 +127,8 @@ class Connection(object):
             if left_beam_depth <= 36 and left_beam_weight <= 300 and bottom_column_depth <= 36:
                 self.is_feasible['geometry limits'] = True
             else:
-                sys.stderr.write('Beam and column depth & weight are not acceptable!\n')
+                if verbose:
+                    sys.stderr.write('Beam and column depth & weight are not acceptable!\n')
                 self.is_feasible['geometry limits'] = False
         elif connection_type == 'typical interior':
             # Connection has two beams and two columns
@@ -154,7 +157,8 @@ class Connection(object):
                     and bottom_column_depth <= 36):
                 self.is_feasible['geometry limits'] = True
             else:
-                sys.stderr.write('Beam and beam depth & weight are not acceptable!\n')
+                if verbose:
+                    sys.stderr.write('Beam and beam depth & weight are not acceptable!\n')
                 self.is_feasible['geometry limits'] = False
         else:
             sys.stderr.write('Error: wrong type of connection specified!\n No such keyword for connection exists!\n')
@@ -249,7 +253,7 @@ class Connection(object):
             sys.stderr.write('Error: wrong type of connection specified!\nNo such keyword for connection exists!\n')
             sys.exit(2)
 
-    def check_moment_column_face(self, connection_type):
+    def check_moment_column_face(self, connection_type, verbose):
         """
         This method checks whether the plastic moment is greater than the actual moment at column face.
         (step 7 in ANSI Section 5.8)
@@ -260,20 +264,22 @@ class Connection(object):
             if phi_d*self.moment['Mpe1'] >= self.moment['Mf1']:
                 self.is_feasible['flexural strength'] = True
             else:
-                sys.stderr.write('Plastic moment at column face is not sufficient!\n')
+                if verbose:
+                    sys.stderr.write('Plastic moment at column face is not sufficient!\n')
                 self.is_feasible['flexural strength'] = False
         elif connection_type == 'typical interior' or connection_type == 'top interior':
             if (phi_d*self.moment['Mpe1'] >= self.moment['Mf1']
                     and phi_d*self.moment['Mpe2'] >= self.moment['Mf2']):
                 self.is_feasible['flexural strength'] = True
             else:
-                sys.stderr.write('Plastic moment at column face is not sufficient!\n')
+                if verbose:
+                    sys.stderr.write('Plastic moment at column face is not sufficient!\n')
                 self.is_feasible['flexural strength'] = False
         else:
             sys.stderr.write('Error: wrong type of connection specified!\nNo such keyword for connection exists!\n')
             sys.exit(2)
 
-    def check_shear_strength(self, connection_type, beam_dead_load, beam_live_load, left_beam, right_beam):
+    def check_shear_strength(self, connection_type, beam_dead_load, beam_live_load, left_beam, right_beam, verbose):
         """
         This method checks whether the beam shear strength is sufficient for the required shear strength.
         (step 8 in ANSI Section 5.8)
@@ -286,7 +292,8 @@ class Connection(object):
             if left_beam.strength['shear'] >= self.shear_force['Vu1']:
                 self.is_feasible['shear strength'] = True
             else:
-                sys.stderr.write('Shear strength is not sufficient!\n')
+                if verbose:
+                    sys.stderr.write('Shear strength is not sufficient!\n')
                 self.is_feasible['shear strength'] = False
         elif connection_type == 'typical interior' or connection_type == 'top interior':
             self.shear_force['Vu1'] = self.shear_force['VRBS1'] + wu * Sh
@@ -295,14 +302,15 @@ class Connection(object):
                     and right_beam.strength['shear'] >= self.shear_force['Vu2']):
                 self.is_feasible['shear strength'] = True
             else:
-                sys.stderr.write('Shear strength is not sufficient!\n')
+                if verbose:
+                    sys.stderr.write('Shear strength is not sufficient!\n')
                 self.is_feasible['shear strength'] = False
         else:
             sys.stderr.write('Error: wrong type of connection specified!\nNo such keyword for connection exists!\n')
             sys.exit(2)
 
     def check_column_beam_relationships(self, connection_type, steel, left_beam, right_beam, top_column, bottom_column, 
-                                        STRONG_COLUMN_WEAK_BEAM_RATIO):
+                                        STRONG_COLUMN_WEAK_BEAM_RATIO, verbose):
         """
         This method examines whether the "strong-column-weak-beam" criteria is satisfied.
         (step 11 in ANSI Section 5.8)
@@ -332,7 +340,8 @@ class Connection(object):
                 if self.moment['Mpc']/self.moment['Mpb'] >= STRONG_COLUMN_WEAK_BEAM_RATIO:
                     self.is_feasible['SCWB'] = True
                 else:
-                    sys.stderr.write('Strong column weak beam (top exterior) is not satisfied!\n')
+                    if verbose:
+                        sys.stderr.write('Strong column weak beam (top exterior) is not satisfied!\n')
                     self.is_feasible['SCWB'] = False
         elif connection_type == 'top interior':
             # For column in one-story building or top story:
@@ -359,7 +368,8 @@ class Connection(object):
                 if self.moment['Mpc']/self.moment['Mpb'] >= STRONG_COLUMN_WEAK_BEAM_RATIO:
                     self.is_feasible['SCWB'] = True
                 else:
-                    sys.stderr.write('Strong column weak beam (top interior) is not satisfied!\n')
+                    if verbose:
+                        sys.stderr.write('Strong column weak beam (top interior) is not satisfied!\n')
                     self.is_feasible['SCWB'] = False
         elif connection_type == 'typical exterior':
             # This connection has two columns and one beam
@@ -384,7 +394,8 @@ class Connection(object):
             if self.moment['Mpc']/self.moment['Mpb'] >= STRONG_COLUMN_WEAK_BEAM_RATIO:
                 self.is_feasible['SCWB'] = True
             else:
-                sys.stderr.write('Strong column weak beam is not satisfied!\n')
+                if verbose:
+                    sys.stderr.write('Strong column weak beam is not satisfied!\n')
                 self.is_feasible['SCWB'] = False
         elif connection_type == 'typical interior':
             # This connection has two columns and two beams
@@ -410,7 +421,8 @@ class Connection(object):
             if self.moment['Mpc'] / self.moment['Mpb'] >= STRONG_COLUMN_WEAK_BEAM_RATIO:
                 self.is_feasible['SCWB'] = True
             else:
-                sys.stderr.write('Strong column weak beam is not satisfied!\n')
+                if verbose:
+                    sys.stderr.write('Strong column weak beam is not satisfied!\n')
                 self.is_feasible['SCWB'] = False
         else:
             sys.stderr.write('Error: wrong type of connection specified!\nNo such keyword for connection exists!\n')

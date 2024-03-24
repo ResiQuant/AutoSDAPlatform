@@ -12,7 +12,7 @@ from beam_component import Beam
 from connection_part import Connection
 
 
-def create_column_set(building, elastic_demand, steel):
+def create_column_set(building, elastic_demand, steel, verbose):
     """
     This function is used to create a set of columns for the entire building.
     :param building: a class defined in "building_information.py" file.
@@ -43,13 +43,14 @@ def create_column_set(building, elastic_demand, steel):
             one_story_columns.append(temp_column)
             # Check the flag of each column
             if not temp_column.check_flag():
-                #sys.stderr.write('column_%s%s is not feasible!!!\n' % (story, column_no))
+                if verbose:
+                    sys.stderr.write('column_%s%s is not feasible!!!\n' % (story, column_no))
                 not_feasible_column.append([story, column_no])
         column_set.append(one_story_columns)
     return column_set, not_feasible_column
 
 
-def create_beam_set(building, elastic_demand, steel):
+def create_beam_set(building, elastic_demand, steel, verbose):
     """
     This function is used to create a set of beams for the entire building.
     :param building: a class defined in "building_information.py" file.
@@ -74,13 +75,14 @@ def create_beam_set(building, elastic_demand, steel):
             one_story_beams.append(temp_beam)
             # Check the flag of each beam
             if not temp_beam.check_flag():
-                #sys.stderr.write('beam_%s%s is not feasible!!!\n' % (story, bay))
+                if verbose:
+                    sys.stderr.write('beam_%s%s is not feasible!!!\n' % (story, bay))
                 not_feasible_beam.append([story, bay])
         beam_set.append(one_story_beams)
     return beam_set, not_feasible_beam
 
 
-def create_connection_set(building, column_set, beam_set, steel):
+def create_connection_set(building, column_set, beam_set, steel, verbose):
     """
     This function is used to create a set of joint connections for the entire building.
     :param building: a class defined in "building_information.py" file.
@@ -110,7 +112,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=None,
                                                  top_column=column_set[story + 1][connection_no],
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
                 # The connection is an exterior joint
                 elif connection_no == building.geometry['number of X bay']:
                     temp_connection = Connection('typical exterior', steel, dead_load, live_load, span,
@@ -118,7 +120,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no-1],
                                                  right_beam=None,
                                                  top_column=column_set[story + 1][connection_no],
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
                 # The connection is an interior joint
                 else:
                     temp_connection = Connection('typical interior', steel, dead_load, live_load, span,
@@ -126,7 +128,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no - 1],
                                                  right_beam=beam_set[story][connection_no],
                                                  top_column=column_set[story + 1][connection_no],
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
             # The connection is not on roof
             else:
                 # The connection is an left top exterior joint
@@ -136,7 +138,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=None,
                                                  top_column=None,
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
                 # The connection is an right top exterior joint
                 elif connection_no == building.geometry['number of X bay']:
                     temp_connection = Connection('top exterior', steel, dead_load, live_load, span,
@@ -144,7 +146,7 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no-1],
                                                  right_beam=None,
                                                  top_column=None,
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
 
                 # The connection is an top interior joint
                 else:
@@ -153,13 +155,14 @@ def create_connection_set(building, column_set, beam_set, steel):
                                                  left_beam=beam_set[story][connection_no],
                                                  right_beam=beam_set[story][connection_no],
                                                  top_column=None,
-                                                 bottom_column=column_set[story][connection_no])
+                                                 bottom_column=column_set[story][connection_no], verbose=verbose)
                     
             one_story_connection.append(temp_connection)
             if not temp_connection.check_flag():
-                #sys.stderr.write('connection_%s%s is not feasible!!!\n' % (story, connection_no))
+                if verbose:
+                    sys.stderr.write('connection_%s%s is not feasible!!!\n' % (story, connection_no))
                 not_feasible_connection.append([story, connection_no])
-            #   sys.exit(1)
+                #sys.exit(1)
         connection_set.append(one_story_connection)
     return connection_set, not_feasible_connection
 

@@ -589,9 +589,11 @@ class Building(object):
         :param type_column: a string denoting whether it is an exterior column or interior column
         :return: update the column size stored in self.member_size
         """
-        temp_size = increase_member_size(self.element_candidate[type_column]['story %s' % (target_story+1)],
+        temp_size, feasible_column_exist = increase_member_size(self.element_candidate[type_column]['story %s' % (target_story+1)],
                                          self.member_size[type_column][target_story])
         self.member_size[type_column][target_story] = temp_size
+        
+        return feasible_column_exist
 
 
     def upscale_beam(self, target_floor):
@@ -600,9 +602,11 @@ class Building(object):
         :param target_floor: a scalar to denote which floor beam shall be improved. (from 0 to total story # - 1)
         :return: update the beam size stored in self.member_size
         """
-        temp_size = increase_member_size(self.element_candidate['beam']['floor level %s' % (target_floor+2)],
+        temp_size, feasible_column_exist = increase_member_size(self.element_candidate['beam']['floor level %s' % (target_floor+2)],
                                          self.member_size['beam'][target_floor])
         self.member_size['beam'][target_floor] = temp_size
+        
+        return feasible_column_exist
 
 
     def constructability_beam(self):

@@ -13,36 +13,37 @@
 
 proc MaxDriftTester {numStories DriftLimit FloorNodes  h1 htyp} {
 
- global CollapseFlag
- set CollapseFlag "NO"
- 
- for {set i 0} { $i<=$numStories-1} {incr i} {
-	if { $i==0 } {
-	    set Node [lindex $FloorNodes $i]
-		set NodeDisplI [nodeDisp $Node 1]
+	global CollapseFlag
+	set CollapseFlag "NO"
+	 
+	for {set i 0} { $i<=$numStories-1} {incr i} {
+		if { $i==0 } {
+			set Node [lindex $FloorNodes [expr $i+1]]
+			set NodeDisplI [nodeDisp $Node 1]
 
-		set SDR [expr $NodeDisplI/$h1]
-		lappend Drift [list $SDR]
+			set SDR [expr $NodeDisplI/$h1]
+			lappend Drift [list $SDR]
 
-    } elseif { $i > 0 } {
-	    set NodeI [lindex $FloorNodes $i]
-		set NodeDisplI [nodeDisp $NodeI 1]
-		set NodeJ [lindex $FloorNodes [expr $i-1]]
-		set NodeDisplJ [nodeDisp $NodeJ 1]
-		
-		set SDR [expr ($NodeDisplI - $NodeDisplJ)/$htyp]
-		lappend Drift [list  $SDR]
+		} elseif { $i > 0 } {
+			set NodeI [lindex $FloorNodes $i]
+			set NodeDisplI [nodeDisp $NodeI 1]
+			set NodeJ [lindex $FloorNodes [expr $i+1]]
+			set NodeDisplJ [nodeDisp $NodeJ 1]
+			
+			set SDR [expr abs($NodeDisplI - $NodeDisplJ)/$htyp]
+			lappend Drift [list  $SDR]
 
-	}
- } 
- set MAXDrift $DriftLimit
+		}
+	} 
+	set MAXDrift $DriftLimit
 
 	for { set h 0 } { $h <= $numStories-1} {incr h} {
-	    set TDrift [ lindex $Drift [expr $h] ]
+		set TDrift [ lindex $Drift [expr $h] ]
 		set TDrift [expr abs( $TDrift )]
 		if { $TDrift > $MAXDrift } {
 			set CollapseFlag "YES"
 			puts "Collapse"
 		}
 	}
+	
 }

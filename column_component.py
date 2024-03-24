@@ -3,6 +3,7 @@
 # Updated in Oct. 2018
 
 import numpy as np
+import sys
 
 from scipy import interpolate
 
@@ -274,6 +275,11 @@ class Column(object):
         # Note that for column, the unbraced length is the column length itself.
         # units: kips, inches
         # Note that column unbraced length is in feet, remember to convert it to inches
+        
+        if self.demand_capacity_ratio['axial'] > 0:
+            #sys.stderr.write('Axial load ratio exceeds 1.0. Increase section!\n')     
+            self.demand_capacity_ratio['axial'] = 0.99 # change to max value to avoid Numerical issues
+        
         c1 = 25.4  # c1_unit
         c2 = 6.895  # c2_unit
         h = self.section['d'] - 2*self.section['tf']  # Web depth

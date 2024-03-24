@@ -566,7 +566,9 @@ def increase_member_size(candidate, current_size):
     """
     # Find the index of current section size in candidate pool and move it to previous one
     candidate_pool_index = candidate.index(current_size)
+    feasible_column_exist = True
     if (candidate_pool_index - 1 < 0):  # Make sure the index does not exceed the bound
         # This means the largest candidate still fails to satisfy the requirement
-        sys.stderr.write('The upper bound for depth initialization is too small!\n')
-    return candidate[candidate_pool_index - 1]
+        feasible_column_exist = False # replace by a nan to create and error and terminate run, otherwise code fall in infinte loop
+        sys.stderr.write('The upper bound for depth initialization is too small!\n') #    
+    return candidate[candidate_pool_index - 1], feasible_column_exist

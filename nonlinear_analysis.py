@@ -599,16 +599,31 @@ class NonlinearAnalysis(object):
             tclfile.write("# Load combinations:\n")
             tclfile.write("# 104 Expected gravity loads: 1.05 DL + 0.25 LL\n")
             tclfile.write("pattern\tPlain\t104\tConstant\t{\n\n")
-            # Dead loads on beam
+            # # Gravity loads on beam
+            # for i in range(2, building.geometry['number of story']+2):
+            #     tclfile.write("# Level%i\n" % i)
+            #     for j in range(1, building.geometry['number of X bay']+1):
+            #         tclfile.write("eleLoad\t-ele")
+            #         tclfile.write("\t%i%i%i%i%i" % (2, j, i, j + 1, i))  # Beam element tag
+            #         tclfile.write("\t-type\t-beamUniform")
+            #         tclfile.write("\t[expr -1.05*$BeamDeadLoadFloor%i - 0.25*$BeamLiveLoadFloor%i];\n"
+            #                       % (i, i))
+            #     tclfile.write("\n")
+            # tclfile.write("\n")
+            
+            # Gravity load on panel zones
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("# Level%i\n" % i)
-                for j in range(1, building.geometry['number of X bay']+1):
-                    tclfile.write("eleLoad\t-ele")
-                    tclfile.write("\t%i%i%i%i%i" % (2, j, i, j + 1, i))  # Beam element tag
-                    tclfile.write("\t-type\t-beamUniform")
-                    tclfile.write("\t[expr -1.05*$BeamDeadLoadFloor%i - 0.25*$BeamLiveLoadFloor%i];\n"
-                                  % (i, i))
-                tclfile.write("\n")
+                for j in range(1, building.geometry['number of X bay']+2):
+                    tclfile.write("load\t%i%i%i" % (j, i+10, 1+9))  # center top node in panel zone
+                    if j == 1 or j == building.geometry['number of X bay']+1:
+                        # Exterior panel zone
+                        tclfile.write("\t0\t[expr (-1*$BeamDeadLoadFloor%i - "
+                                  "0.25*$BeamLiveLoadFloor%i)*$BayWidth/2]\t0;\n" % (i, i))
+                    else:
+                        # Interior panel zone
+                        tclfile.write("\t0\t[expr (-1*$BeamDeadLoadFloor%i - "
+                                  "0.25*$BeamLiveLoadFloor%i)*$BayWidth]\t0;\n" % (i, i))
             tclfile.write("\n")
             # Gravity load on leaning column
             tclfile.write("# Define point loads on leaning column\n")
@@ -757,47 +772,109 @@ class NonlinearAnalysis(object):
 
             if analysis_type == 'PushoverAnalysis':
                 tclfile.write("cd\t$baseDir/$dataDir/StoryDrifts\n\n")
-            if analysis_type == 'DynamicAnalysis':
-                tclfile.write("cd\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts\n\n")
-            # Write the story drift recorder for each story
+            #elif analysis_type == 'DynamicAnalysis':
+                #tclfile.write("cd\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts\n\n")
+                #tclfile.write("cd\t$dataDir/StoryDrifts\n\n")
+                
+            # Write the story time history drift recorder for each story
+            for i in range(1, building.geometry['number of story']+1):                
+                if analysis_type == 'PushoverAnalysis':
+                    tclfile.write("recorder\tDrift\t-file")
+                    tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
+                
+                    # Always use nodes on column #2 to calculate story drift time history
+                    if i == 1:
+                        # Node tag at ground floor is different from those on upper stories
+                        tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 0))  # Node at bottom of current story
+                    else:
+                        tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 1))  # Node at bottom of current story
+                    tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
+                    tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
+                    
+                #if analysis_type == 'DynamicAnalysis':
+                    #tclfile.write("recorder\tDrift\t-file")
+                    #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Story%i.out" % i)
+                    #tclfile.write("\t$dataDir/story%i_drift.out" % i)
+                    # Always use nodes on column #2 to calculate story drift time history
+                    # if i == 1:
+                    #     # Node tag at ground floor is different from those on upper stories
+                    #     tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 0))  # Node at bottom of current story
+                    # else:
+                    #     tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 1))  # Node at bottom of current story
+                    # tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
+                    # tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
+
+            # # Write the story drift recorder for roof
+            # tclfile.write("recorder\tDrift\t-file")
+            # if analysis_type == 'PushoverAnalysis':
+            #     tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
+                
+            # if analysis_type == 'DynamicAnalysis':
+            #     #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
+            #     tclfile.write("\t$dataDir/DriftRoof.out")
+            # tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
+            # tclfile.write("\t-jNode\t%i%i%i%i" % (2, building.geometry['number of story']+1+10, 1, 1))
+            # tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
+            
+            # Write the story envelope drift recorder for each story
             for i in range(1, building.geometry['number of story']+1):
-                tclfile.write("recorder\tDrift\t-file")
+                tclfile.write("recorder\tEnvelopeDrift\t-file")
                 if analysis_type == 'PushoverAnalysis':
                     tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
+                    
                 if analysis_type == 'DynamicAnalysis':
-                    tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Story%i.out" % i)
-                # Always use nodes on column #2 to calculate story drift
+                    #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Story%i.out" % i)
+                    tclfile.write("\t$dataDir/story%i_drift_env.out" % i)
+                
+                # Always use nodes on column #2 to calculate story drift time history
                 if i == 1:
                     # Node tag at ground floor is different from those on upper stories
-                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 0))  # Node at bottom of current story
+                    tclfile.write("\t-iNode\t%i%i%i%i" % (2, i+10, 1, 0))  # Node at bottom of current story
                 else:
-                    tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, i+10, 1, 1))  # Node at bottom of current story
-                tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
+                    tclfile.write("\t-iNode\t%i%i%i%i" % (2, i+10, 1, 1))  # Node at bottom of current story
+                tclfile.write("\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
                 tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
             # Write the story drift recorder for roof
-            tclfile.write("recorder\tDrift\t-file")
+            tclfile.write("recorder\tEnvelopeDrift\t-file")
             if analysis_type == 'PushoverAnalysis':
                 tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
+                
             if analysis_type == 'DynamicAnalysis':
-                tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
-            tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
+                #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
+                tclfile.write("\t$dataDir/DriftRoof_env.out")
+            tclfile.write("\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
             tclfile.write("\t-jNode\t%i%i%i%i" % (2, building.geometry['number of story']+1+10, 1, 1))
             tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
     def write_node_acceleration_recorder(self, building):
         # Create a .tcl file to record absolute node acceleration
         with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodeAccelerationRecorders2DModel.tcl'), 'w') as tclfile:
-            tclfile.write("# Define node acceleration recorders\n\n\n")
-            tclfile.write("cd $baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/NodeAccelerations\n\n")
+            # tclfile.write("# Define node acceleration recorders\n\n\n")
+            # #tclfile.write("cd $baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/NodeAccelerations\n\n")
+            # #tclfile.write("cd $dataDir/NodeAccelerations\n\n")
+            # for i in range(1, building.geometry['number of story']+2):
+            #     tclfile.write("recorder\tNode\t-file\t$dataDir/NodeAccLevel%i.out\t-timeSeries\t2\t-time\t-node" % i)
+            #     for j in range(1, building.geometry['number of X bay']+2):
+            #         if i == 1:
+            #             tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 0))
+            #         else:
+            #             tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))
+            #     tclfile.write("\t-dof\t1\taccel;\n")
+            
+            
+            # Always use nodes on column #2 to calculate story drift time history
+            tclfile.write("# Define node acceleration envelope recorders\n\n\n")
+            #tclfile.write("cd $baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/NodeAccelerations\n\n")
+            #tclfile.write("cd $dataDir/NodeAccelerations\n\n")
             for i in range(1, building.geometry['number of story']+2):
-                tclfile.write("recorder\tNode\t-file\tNodeAccLevel%i.out\t-timeSeries\t2\t-time\t-node" % i)
-                for j in range(1, building.geometry['number of X bay']+2):
-                    if i == 1:
-                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 0))
-                    else:
-                        tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 1))
+                tclfile.write("recorder\tEnvelopeNode\t-file\t$dataDir/floor%i_acc_env.out\t-timeSeries\t2\t-node" % i)
+                if i == 1:
+                    tclfile.write("\t%i%i%i%i" % (2, i+10, 1, 0))
+                else:
+                    tclfile.write("\t%i%i%i%i" % (2, i+10, 1, 1))
                 tclfile.write("\t-dof\t1\taccel;\n")
+            
 
     def write_damping(self, building):
         # Create a .tcl file to define damping for dynamic analysis
@@ -849,7 +926,8 @@ class NonlinearAnalysis(object):
             tclfile.write("set\tNStories\t%i; \n" % building.geometry['number of story'])
             # The height shall be converted from ft to inch
             tclfile.write("set\tHTypicalStory\t%.2f; \n" % (building.geometry['typical story height']*12.0))
-            tclfile.write("set\tHFirstStory\t%.2f; \n" % (building.geometry['first story height']*12.0))
+            tclfile.write("set\tHFirstStory\t%.2f; \n" % (building.geometry['first story height']*12.0))            
+            
             tclfile.write("set\tFloorNodes\t[list")
             for i in range(1, building.geometry['number of story']+2):
                 if i == 1:
@@ -930,8 +1008,7 @@ class NonlinearAnalysis(object):
             # The path to Eigen value analysis results
             periods_dir = os.path.join(building.directory['building nonlinear model'], 'EigenAnalysisOutput')
             # Read the periods from .out files generated by Eigen value analysis
-            os.chdir(periods_dir)
-            periods = np.loadtxt('Periods.out')
+            periods = np.loadtxt(os.path.join(periods_dir, 'Periods.out'))
             # Update period variables in Model.tcl
             with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'r') as file:
                 content = file.read()

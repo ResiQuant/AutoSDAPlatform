@@ -40,11 +40,11 @@ start_time = time.time()
 # ********************* Revision Ends Here *******************************
 
 # ********************* Single Building Case Ends Here *******************
-IDs = [1129]
+IDs = [7323]
 for id in IDs:
     building_id = 'Building_' + str(id)
     print("Design for Building ID = ", building_id)
-    seismic_design(building_id, base_directory, autoSDA_directory)
+    seismic_design(building_id, base_directory, autoSDA_directory, verbose=True)
 
 # ********************* Single Building Case Ends Here *******************
 

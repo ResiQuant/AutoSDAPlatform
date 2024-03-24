@@ -31,10 +31,13 @@ set NstepGravity 5;  								# Apply gravity in 5 steps
 set DGravity [expr 1./$NstepGravity]; 				# Load increment;
 integrator LoadControl $DGravity;					# Determine the next time step for an analysis
 analysis Static;									# Define type of analysis static or transient
-analyze $NstepGravity;								# Apply gravity
+if {[analyze $NstepGravity]} {
+	puts "Application of gravity load failed"
+} else {
+	puts "Gravity Performed Successfully"
+}
 
 
 # ------------------------------------------------- maintain constant gravity loads and reset time to zero
 loadConst -time 0.0
 set Tol 1.0e-6;										# reduce tolerance after gravity loads
-puts "Gravity Performed Successfully"
