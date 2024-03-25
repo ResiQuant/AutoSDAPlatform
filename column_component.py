@@ -276,7 +276,7 @@ class Column(object):
         # units: kips, inches
         # Note that column unbraced length is in feet, remember to convert it to inches
         
-        if self.demand_capacity_ratio['axial'] > 0:
+        if self.demand_capacity_ratio['axial'] > 1.0:
             #sys.stderr.write('Axial load ratio exceeds 1.0. Increase section!\n')     
             self.demand_capacity_ratio['axial'] = 0.99 # change to max value to avoid Numerical issues
         
