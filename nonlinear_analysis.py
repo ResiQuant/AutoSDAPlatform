@@ -495,7 +495,7 @@ class NonlinearAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("set\tFloor%iWeight\t%.2f; \n" % (i, building.gravity_loads['floor weight'][i-2]))
             tclfile.write("set\tFrameTributaryMassRatio\t%s; \n" % (1.0 / building.geometry['number of X LFRS']))
-            tclfile.write("set\tTotalNodesPerFloor\t%i; \n" % (building.geometry['number of X bay'] + 2))
+            tclfile.write("set\tTotalNodesPerFloor\t%i; \n" % (building.geometry['number of X bay'] + 1))
             for i in range(2, building.geometry['number of story'] + 2):
                 tclfile.write("set\tNodalMassFloor%i" % i)
                 tclfile.write("\t[expr $Floor%iWeight*$FrameTributaryMassRatio/$TotalNodesPerFloor/$g]; \n" % i)
@@ -658,10 +658,10 @@ class NonlinearAnalysis(object):
 
             # Record vertical reactions
             tclfile.write("# Vertical reactions\n")
-            tclfile.write("recorder\tNode\t-file\tVerticalReactions.out\t-time\t-node")
+            tclfile.write("recorder\tNode\t-file\tVerticalReactions.out\t-time\t-node")            
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0))
-            tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, 1))
+                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0)) # frame columns            
+            tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # leaning column
             tclfile.write("\t-dof\t2\treaction;\n\n")
 
             # Record horizontal reactions
@@ -669,7 +669,7 @@ class NonlinearAnalysis(object):
             tclfile.write("recorder\tNode\t-file\tXReactions.out\t-time\t-node")
             for j in range(1, building.geometry['number of X bay']+2):
                 tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0))
-            tclfile.write("\t%i%i" % (building.geometry['number of X bay']+2, 1))
+            tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1))
             tclfile.write("\t-dof\t1\treaction;\n\n")
 
     def write_beam_hinge_recorder(self, building):
@@ -804,23 +804,23 @@ class NonlinearAnalysis(object):
                     # tclfile.write("\t-time\t-jNode\t%i%i%i%i" % (2, i+1+10, 1, 1))  # Node at top of current story
                     # tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
 
-            # # Write the story drift recorder for roof
-            # tclfile.write("recorder\tDrift\t-file")
-            # if analysis_type == 'PushoverAnalysis':
-            #     tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
+            # Write the story drift recorder for roof
+            tclfile.write("recorder\tDrift\t-file")
+            if analysis_type == 'PushoverAnalysis':
+                tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
                 
             # if analysis_type == 'DynamicAnalysis':
             #     #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
             #     tclfile.write("\t$dataDir/DriftRoof.out")
-            # tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
-            # tclfile.write("\t-jNode\t%i%i%i%i" % (2, building.geometry['number of story']+1+10, 1, 1))
-            # tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
+            tclfile.write("\t-time\t-iNode\t%i%i%i%i" % (2, 1+10, 1, 0))
+            tclfile.write("\t-jNode\t%i%i%i%i" % (2, building.geometry['number of story']+1+10, 1, 1))
+            tclfile.write("\t-dof\t1\t-perpDirn\t2; \n")
             
             # Write the story envelope drift recorder for each story
             for i in range(1, building.geometry['number of story']+1):
                 tclfile.write("recorder\tEnvelopeDrift\t-file")
                 if analysis_type == 'PushoverAnalysis':
-                    tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i.out" % i)
+                    tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Story%i_env.out" % i)
                     
                 if analysis_type == 'DynamicAnalysis':
                     #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Story%i.out" % i)
@@ -838,7 +838,7 @@ class NonlinearAnalysis(object):
             # Write the story drift recorder for roof
             tclfile.write("recorder\tEnvelopeDrift\t-file")
             if analysis_type == 'PushoverAnalysis':
-                tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof.out")
+                tclfile.write("\t$baseDir/$dataDir/StoryDrifts/Roof_env.out")
                 
             if analysis_type == 'DynamicAnalysis':
                 #tclfile.write("\t$baseDir/$dataDir/EQ_$eqNumber/Scale_$scale/StoryDrifts/Roof.out")
@@ -985,15 +985,17 @@ class NonlinearAnalysis(object):
             # Perform Eigen Analysis to obtain the periods which will be necessary for raleigh damping in dynamic part
             os.chdir(os.path.join(building.directory['building nonlinear model']))        
             os.system(OpenSees_path + " Model.tcl")
-            time.sleep(1) # add delay to allow creation of files before trying to fetch them
+            #time.sleep(1) # add delay to allow creation of files before trying to fetch them
             os.chdir(building.base_directory)
+            # Delete opensees.exe file once finished analysis
+            os.remove(os.path.join(building.directory['building nonlinear model'], 'OpenSees.exe'))
 
         # Update pushover parameters contained Model.tcl when performing pushover analysis
         elif analysis_type == 'PushoverAnalysis':
             # This is to update the pushover analysis parameters
             old_string = ['**ControlNode**', '**ControlDOF**', '**DisplacementIncrement**', '**DisplacementMaximum**']
-            new_string = ['%i%i%i%i' % (1, building.geometry['number of story']+1, 1, 1), '%i' % 1, '0.01',
-                          '%.2f' % (0.1*building.geometry['floor height'][-1]*12)]  # DisplamentMaximum should be in inch.
+            new_string = ['%i%i%i%i' % (1, building.geometry['number of story']+10, 1, 1), '%i' % 1, '0.01',
+                          '%.2f' % (0.1*building.geometry['floor height'][-1]*12)]  # DisplacementMaximum should be in inch.
             with open(os.path.join(building.directory['building nonlinear model'],'Model.tcl'), 'r') as file:
                 content = file.read()
             for indx in range(len(old_string)):

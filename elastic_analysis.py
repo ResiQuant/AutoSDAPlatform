@@ -287,7 +287,7 @@ class ElasticAnalysis(object):
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("set\tFloor%iWeight\t%.2f; \n" % (i, building.gravity_loads['floor weight'][i-2]))
             tclfile.write("set\tFrameTributaryMassRatio\t%s; \n" % (1.0 / building.geometry['number of X LFRS']))
-            tclfile.write("set\tTotalNodesPerFloor\t%i; \n" % (building.geometry['number of X bay']+1))
+            tclfile.write("set\tTotalNodesPerFloor\t%i; \n" % (building.geometry['number of X bay'] + 1))
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("set\tNodalMassFloor%i" % i)
                 tclfile.write("\t[expr $Floor%iWeight*$FrameTributaryMassRatio/$TotalNodesPerFloor/$g]; \n" % i)
@@ -688,7 +688,7 @@ class ElasticAnalysis(object):
         """
         # define a list which includes all baseline files' names
         file_list = ['Database.csv', 'DefineFunctionsAndProcedures.tcl', 'DefineVariables.tcl',
-                     'EigenValueAnalysis.tcl', 'Model.tcl', 'PerformLoadsAnalysis.tcl']
+                     'EigenValueAnalysis.tcl', 'Model.tcl', 'PerformLoadsAnalysis.tcl', 'OpenSees.exe']
         
         # Copy all baseline .tcl files to building model directory
         for file in file_list:  
@@ -731,7 +731,8 @@ class ElasticAnalysis(object):
         # os.system("C:\SimCenter\OpenSees\OpenSees " + model_path)
         
         os.chdir(os.path.join(building.directory['building elastic model']))        
-        os.system("C:\SimCenter\OpenSees\OpenSees Model.tcl")
-        time.sleep(1) # add delay to allow creation of files before trying to fetch them
+        #os.system("C:\SimCenter\OpenSees\OpenSees Model.tcl")
+        os.system("OpenSees Model.tcl")
+        # time.sleep(3) # add delay to allow creation of files before trying to fetch them
         os.chdir(building.base_directory)
                   

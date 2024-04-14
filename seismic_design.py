@@ -37,6 +37,11 @@ def seismic_design(building_id, base_directory, autoSDA_directory, verbose=False
     # Create an instance using "Building" class
     building_1 = Building(building_id, base_directory, autoSDA_directory)
 
+    # # Copy OpenSees.exe to working directory (Delete after design finishes)
+    # original_file = os.path.join(autoSDA_directory,'OpenSees', 'OpenSees.exe')
+    # target_file = os.path.join(building_1.base_directory, 'BuildingElasticModels', building_1.UID)
+    # shutil.copyfile(original_file, target_file)
+
     # Perform EigenValue Analysis only to obtain the period
     _ = ElasticAnalysis(building_1, for_drift_only=False, for_period_only=True)
     building_1.read_modal_period()

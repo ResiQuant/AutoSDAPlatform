@@ -96,7 +96,8 @@ class Building(object):
                           'building data': building_data_directory,
                           'building elastic model': building_elastic_model_directory,
                           'building nonlinear model': building_nonlinear_model_directory}
-
+        
+       
     def read_geometry(self):
         """
         This method is used to read the building geometry information from .csv files:

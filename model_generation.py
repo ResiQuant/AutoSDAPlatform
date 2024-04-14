@@ -5,6 +5,11 @@ import os
 import pickle
 
 from nonlinear_analysis import NonlinearAnalysis
+import building_information 
+import column_component 
+import beam_component 
+import connection_part 
+OpenSees_path = 'OpenSees'
 
 def model_generation(building_id, base_directory):
 
@@ -13,7 +18,7 @@ def model_generation(building_id, base_directory):
     ##########################################################################
 
     # Change the directory to the folder where the design results are stored
-    os.chdir(base_directory / 'BuildingData' / building_id)
+    os.chdir(os.path.join(base_directory, 'BuildingData', building_id))
     # Load all design results (stored as .pkl files)
     with open('construction_building.pkl', 'rb') as file:
         building = pickle.load(file)
@@ -46,6 +51,7 @@ def model_generation(building_id, base_directory):
     #                 Generate Nonlinear Analysis Model                      #
     ##########################################################################
 
-    analysis_list = ['EigenValueAnalysis', 'PushoverAnalysis', 'DynamicAnalysis']
+    analysis_list = ['EigenValueAnalysis', 'PushoverAnalysis']#, 'DynamicAnalysis']
     for analysis_type in analysis_list:
-        _ = NonlinearAnalysis(building, column_set, beam_set, connection_set, analysis_type)
+        print(building)
+        _ = NonlinearAnalysis(building, column_set, beam_set, connection_set, analysis_type, OpenSees_path)

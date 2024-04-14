@@ -19,19 +19,26 @@
 import os
 import pickle
 import time
+import pathlib
+import pandas as pd
 
 
-from global_variables import base_directory
-from global_variables import SECTION_DATABASE
-from global_variables import COLUMN_DATABASE
-from global_variables import BEAM_DATABASE
+# from global_variables import base_directory
+# from global_variables import SECTION_DATABASE
+# from global_variables import COLUMN_DATABASE
+# from global_variables import BEAM_DATABASE
+base_directory = pathlib.Path(os.getcwd())
+autoSDA_directory = pathlib.Path(os.getcwd())
+SECTION_DATABASE = pd.read_csv(os.path.join(autoSDA_directory, 'AllSectionDatabase.csv'), header=0)
+COLUMN_DATABASE = pd.read_csv(os.path.join(autoSDA_directory, 'ColumnDatabase.csv'), header=0)
+BEAM_DATABASE = pd.read_csv(os.path.join(autoSDA_directory, 'BeamDatabase.csv'), header=0)
 from model_generation import model_generation
 
 ##########################################################################
 #                       Generate Models                                  #
 ##########################################################################
 
-IDs = [10]
+IDs = [2]
 for id in IDs:
     building_id = 'Building_' + str(id)
     print(building_id)
