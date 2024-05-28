@@ -5,7 +5,7 @@ import numpy as np
 import os
 import sys
 import shutil
-import time
+from help_functions import search_section_property
 
 # #########################################################################
 #              Generate Nonlinear OpenSees model (write .tcl files)       #
@@ -33,22 +33,33 @@ class NonlinearAnalysis(object):
     (16) define pushover loading pattern
     """
 
-    def __init__(self, building, column_set, beam_set, connection_set, analysis_type, OpenSees_path):
+    def __init__(self, building, column_set, beam_set, connection_set, column_set_EGF, analysis_type, OpenSees_path,
+                 add_gravity_frame=False, composite_section=False):
         """
         This function is used to call all methods to write .tcl files required for nonlinear analysis OpenSees model
-        :param building: a class defined in "building_information.py" file
-        :param column_set: a two-dimensional list[x][y] and each element is a column object defined in "column_component
+        :building: a class defined in "building_information.py" file
+        :column_set: a two-dimensional list[x][y] and each element is a column object defined in "column_component"
                            x: from 0 to (story number-1)
                            y: from 0 to (bay number+1)
-        :param beam_set: a two-dimensional list[x][z] and each element is a beam object defined in "beam_component"
+        :beam_set: a two-dimensional list[x][z] and each element is a beam object defined in "beam_component"
                            x: from 0 to (story number-1)
                            z: from 0 to (bay number)
-        :param connection_set: a two-dimensional list[x][y] and each element is a connection object defined in
+        :connection_set: a two-dimensional list[x][y] and each element is a connection object defined in
                                "connection_part.py" file
                                x: from 0 to (story number-1)
                                y: from 0 to (bay number+1)
-        :param analysis_type: a string specifies which analysis type the current model is for
+        :column_set_EGF: a two-dimensional list[x][y] and each element is a column object defined in "column_component"
+                           x: from 0 to (story number-1)
+                           y: 0 (only one type of gravity column)
+        :analysis_type: a string specifies which analysis type the current model is for
                               options: 'EigenValueAnalysis', 'PushoverAnalysis', 'DynamicAnalysis'
+                              
+        :add_gravity_frame: (bool)
+                            True  = add a one bay frame that captures stiffness of the gravity frame\
+                            False = Add leaning column only
+        :composite_section: (bool)
+                            True  = Add stiffness amplification factors to the beams to consider composite action
+                            False = Beams modeles with bare section stiffness  
         """
         # User-hints: if wrong analysis_type is input
         if analysis_type != 'EigenValueAnalysis' and analysis_type != 'PushoverAnalysis' \
@@ -67,22 +78,35 @@ class NonlinearAnalysis(object):
         
         # Call methods to write .tcl files for the building
         # Nonlinear model for different purpose might require different .tcl files (different methods)
-        self.write_nodes(building, column_set, beam_set)
-        self.write_fixities(building)
+        self.write_nodes(building, column_set, beam_set)        
         # self.write_floor_constraint(building) # do not use rigid diaphragm constraint due to numerical issues caused and no better result
-        self.write_beam_hinge_material(building, beam_set)
+        self.write_beam_hinge_material(building, beam_set, composite_section)
         self.write_column_hinge_material(building, column_set)
-        self.write_beam(building)
+        self.write_beam(building, composite_section)
         self.write_column(building)
         self.write_beam_hinge(building)
         self.write_column_hinge(building)
+        
+        self.write_EGF_column_hinge_material(building, column_set_EGF, add_gravity_frame)
+        if add_gravity_frame:
+            self.write_nodes_EGF(building)
+            self.write_links_to_EGF(building)
+            self.write_EGF(building, composite_section)            
+            self.write_EGF_spring(building, composite_section)
+        else:
+            self.write_nodes_leaning_column(building)
+            self.write_links_to_EGF(building)
+            self.write_leaning_column(building)
+            self.write_leaning_column_spring(building)
+        
+        self.write_fixities(building, add_gravity_frame)
         self.write_mass(building)
         self.write_panel_zone_elements(building)
-        self.write_panel_zone_springs(building, column_set, beam_set, connection_set)
-        self.write_gravity_load(building)
+        self.write_panel_zone_springs(building, column_set, beam_set, connection_set, composite_section)
+        self.write_gravity_load(building, add_gravity_frame)
         self.copy_baseline_eigen_files(building, analysis_type, OpenSees_path)
         if analysis_type == 'PushoverAnalysis':
-            self.write_base_reaction_recorder(building)
+            self.write_base_reaction_recorder(building, add_gravity_frame)
             self.write_beam_hinge_recorder(building)
             self.write_column_hinge_recorder(building)
             self.write_beam_force_recorder(building)
@@ -149,21 +173,25 @@ class NonlinearAnalysis(object):
             tclfile.write("\n")
             tclfile.write("puts \"Nodes for frame defined\" \n\n")
 
+
+    def write_nodes_leaning_column(self, building):
+        # Create a .tcl file and write the node information
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodes2DModelEGF.tcl'), 'w') as tclfile:
             # Write the nodes for leaning column
             tclfile.write("# Define nodes for leaning column \n")
             for i in range(1, building.geometry['number of story']+2):
-                tclfile.write("node\t %i%i20" % (building.geometry['number of X bay']+2, i))  # Node label
+                tclfile.write("node\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node label
                 tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
                 if i <= 2:
-                    tclfile.write("\t[expr %i*$FirstStory+0*$TypicalStory];" % (i-1))  # Y coordinate
-                    tclfile.write("\t#Level %i\n" % i)  # Comments to explain floor level
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
                 else:
                     tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))
                     tclfile.write("\t# Level %i\n" % i)
             tclfile.write("\n")
-            tclfile.write("puts \"Nodes for leaning column defined\" \n\n")
+            tclfile.write("# puts \"Nodes for leaning column defined\" \n\n")
 
-            # Write extra nodes for leaning column springs
+            # Write the extra nodes for leaning column springs
             tclfile.write("# Define extra nodes needed to define leaning column springs \n")
             for i in range(2, building.geometry['number of story']+2):
                 # The node below floor level
@@ -171,6 +199,7 @@ class NonlinearAnalysis(object):
                 tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 1))  # X coordinate
                 tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
                 tclfile.write("\t# Node below floor level %i\n" % i)
+
                 # If it's top story, node above roof is not needed
                 # because no leaning column above roof
                 if i < building.geometry['number of story']+1:
@@ -182,9 +211,107 @@ class NonlinearAnalysis(object):
                 else:
                     pass
             tclfile.write("\n")
-            tclfile.write("puts \"Extra nodes for leaning column springs defined\"\n")
+            tclfile.write("# puts \"Extra nodes for leaning column springs defined\"\n")
+    
+    def write_nodes_EGF(self, building):
+        # Create a .tcl file and write the node information
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineNodes2DModelEGF.tcl'), 'w') as tclfile:
+            # Write the nodes for leaning column
+            tclfile.write("# Define nodes for EGF (left column)\n")
+            for i in range(1, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            
+            tclfile.write("# Define nodes for EGF (right column)\n")
+            for i in range(1, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i20" % (building.geometry['number of X bay']+3, i))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            tclfile.write("\n")
+            tclfile.write("# puts \"Nodes for EGF column defined\" \n\n")
 
-    def write_fixities(self, building):
+            # Write the extra nodes for beam springs
+            tclfile.write("# Define extra nodes for beam springs (left side)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 3))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            
+            tclfile.write("# Define extra nodes for beam springs (right side)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+3, i, 5))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            tclfile.write("\n")
+            tclfile.write("# puts \"Extra nodes for EGF beam defined\" \n\n")
+
+            # Write the extra nodes for column springs
+            tclfile.write("# Define extra nodes needed to define leaning column springs \n")
+            tclfile.write("# Define nodes for EGF (left column)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # The node below floor level
+                tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 2))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 1))  # X coordinate
+                tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                tclfile.write("\t# Node below floor level %i\n" % i)
+
+                # If it's top story, node above roof is not needed
+                # because no leaning column above roof
+                if i < building.geometry['number of story']+1:
+                    # The node above floor level
+                    tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 4))  # Nodel label
+                    tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                    tclfile.write("\t# Node above floor level %i\n" % i)
+                else:
+                    pass
+            tclfile.write("\n")
+            
+            tclfile.write("# Define nodes for EGF (right column)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # The node below floor level
+                tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+3, i, 2))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 2))  # X coordinate
+                tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                tclfile.write("\t# Node below floor level %i\n" % i)
+
+                # If it's top story, node above roof is not needed
+                # because no leaning column above roof
+                if i < building.geometry['number of story']+1:
+                    # The node above floor level
+                    tclfile.write("node\t%i%i%i20" % (building.geometry['number of X bay']+3, i, 4))  # Nodel label
+                    tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                    tclfile.write("\t# Node above floor level %i\n" % i)
+                else:
+                    pass
+            tclfile.write("\n")
+            
+            tclfile.write("# puts \"Extra nodes for EGF column springs defined\"\n")
+    
+
+    def write_fixities(self, building, add_gravity_frame):
         """
         Create a .tcl file to write boundary for the model
         :param building: a class defined in "building_information.py"
@@ -195,9 +322,16 @@ class NonlinearAnalysis(object):
             tclfile.write("# Defining fixity at column base \n")
             for j in range(1, building.geometry['number of X bay']+2):
                 tclfile.write("fix\t%i%i%i%i\t1\t1\t1; \n" % (j, 1+10, 1, 0))
-            # Leaning column base
-            tclfile.write("fix\t%i%i20\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
-            tclfile.write("puts \"All column base fixities have been defined\"")
+                
+            if add_gravity_frame:
+                # EGF columns base
+                tclfile.write("fix\t%i%i20\t1\t1\t0; \n" % (building.geometry['number of X bay']+2, 1))
+                tclfile.write("fix\t%i%i20\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+3, 1))
+                tclfile.write("# puts \"All column base fixities have been defined\"")   
+            else:
+                # Leaning column base
+                tclfile.write("fix\t%i%i20\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
+                tclfile.write("# puts \"All column base fixities have been defined\"")                
 
     def write_floor_constraint(self, building):
         """
@@ -224,93 +358,280 @@ class NonlinearAnalysis(object):
                 tclfile.write("\t#Pier 1 to Leaning column\n\n")
             tclfile.write("puts \"Floor constraint defined\"")
 
-    def write_beam_hinge_material(self, building, beam_set):
+    def write_beam_hinge_material(self, building, beam_set, composite_section):
         """
         Create a .tcl file to define all beam plastic hinge materials using Modified IMK material model
         :param building: a class defined in "building_information.py"
         :param beam_set: a list[x][z] and each element is a class defined in "beam_component.py"
         :return: a .tcl file
         """
+        
+        useIMK = beam_set[0][0].useIMK
+        
         material_tag = 70001
         with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeamHingeMaterials2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam hinge material models\n\n\n")
+            
+            
+            if not useIMK:
+                if composite_section:
+                    tclfile.write("\n\n# Beam hinge modification factors to consider composite action effects\n")                                    
+                    tclfile.write("set\tComposite\t1;\n")
+                    tclfile.write("# compBackboneFactors {MpP/Mp MpN/Mp Mc/MpP Mc/MpN Mr/MpP Mr/MpN D_P D_N theta_p_P_comp theta_p_N_comp theta_pc_P_comp theta_pc_P_comp};\n")
+                    tclfile.write("set\tcompBackboneFactors\t{%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f};\n" % (building.MpP_Mp, building.MpN_Mp, building.Mc_MpP, building.Mc_MpN, building.Mr_MpP, building.Mr_MpN, building.D_P, building.D_N, building.theta_p_P_comp, building.theta_p_N_comp, building.theta_pc_P_comp, building.theta_pc_N_comp))
+                    tclfile.write("set\tPinching\t0;\n")
+                    tclfile.write("set\tComp_I\t%.2f;\n\n" % (building.Comp_I))
+                else:
+                    tclfile.write("set\tComposite\t0;\n")
+                    tclfile.write("set\tcompBackboneFactors\t0;\n")
+                    tclfile.write("set\tPinching\t0;\n")
+                    tclfile.write("set\tComp_I\t1.0;\n\n")
+            
             for i in range(2, building.geometry['number of story']+2):  # i is floor level number (no beam on ground)
                 for j in range(1, building.geometry['number of X bay']+1):  # j is bay number (1 for leftmost bay)
-                    tclfile.write("# Level%iBay%i\n" % (i, j))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iTag\t%i;\n" % (i, j, material_tag))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iK0\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['K0'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iAs\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['as'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iMy\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['My'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iLambda\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['Lambda'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaP\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_p'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaPc\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_pc'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iResidual\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['residual'])))
-                    tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaU\t%.4f;\n"
-                                  % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_u'])))
-                    tclfile.write("CreateIMKMaterial\t$BeamHingeMaterialLevel%iBay%iTag" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iK0" % (i, j))
-                    tclfile.write("\t$n")
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iAs" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iMy" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iLambda" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaP" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaPc" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iResidual" % (i, j))
-                    tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaU;\n\n" % (i, j))
+                    if useIMK:
+                        # Model hinges as IMK with Monotonic backbone and degradation
+                        tclfile.write("# Level%i-Bay%i\n" % (i, j))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iTag\t%i;\n" % (i, j, material_tag))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iK0\t[expr $Comp_I*%.4f];\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['K0'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iAs\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['as'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iMy\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['My'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iLambda\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['Lambda'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaP\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_p'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaPc\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_pc'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iResidual\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['residual'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaU\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_u'])))
+                        tclfile.write("CreateIMKMaterial\t$BeamHingeMaterialLevel%iBay%iTag" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iK0" % (i, j))
+                        tclfile.write("\t$n")
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iAs" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iMy" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iLambda" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaP" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaPc" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iResidual" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaU;\n\n" % (i, j))
+                    else:
+                        # Model hinges as HYSTERETIC with first cycle backbone
+                        tclfile.write("# Level%i-Bay%i\n" % (i, j))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iTag\t%i;\n" % (i, j, material_tag))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iEIeff\t[expr $Comp_I*%.4f];\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['EIeff'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%ieleLength\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['eleLength'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iMy\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['My'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iMcMy\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['McMy'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaP\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_p'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iThetaPc\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['theta_pc'])))
+                        tclfile.write("set\tBeamHingeMaterialLevel%iBay%iResidual\t%.4f;\n"
+                                      % (i, j, (beam_set[i-2][j-1].plastic_hinge['residual'])))
+                        tclfile.write("matHysteretic\t$BeamHingeMaterialLevel%iBay%iTag" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iEIeff" % (i, j))                        
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%ieleLength" % (i, j))
+                        tclfile.write("\t$n")
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iMy" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iMcMy" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaP" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iThetaPc" % (i, j))
+                        tclfile.write("\t$BeamHingeMaterialLevel%iBay%iResidual" % (i, j))
+                        tclfile.write("\t$Composite")
+                        tclfile.write("\t$compBackboneFactors")
+                        tclfile.write("\t$Pinching;\n\n")
                     material_tag += 1
             tclfile.write("\n\nputs \"Beam hinge materials defined\"")
 
     def write_column_hinge_material(self, building, column_set):
         """
         Create a .tcl file to define all column plastic hinge materials using modified IMK material model
+        : building: a class defined in "building_information.py"
+        : column_set: a list[x][y] and each element is a class defined in "column_component.py" file
+        :return: a .tcl file
+        """
+        
+        useIMK = column_set[0][0].useIMK
+        
+        material_tag = 60001
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumnHingeMaterials2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define column hinge material models\n\n\n")
+            
+            if not useIMK:
+                tclfile.write("set\tComposite\t0;\n")
+                tclfile.write("set\tcompBackboneFactors\t0;\n")
+                tclfile.write("set\tPinching\t0;\n\n")
+            
+            for i in range(1, building.geometry['number of story']+1):  # i is story number (from 1)
+                for j in range(1, building.geometry['number of X bay']+2):  # j is pier number (1 for left most pier)
+                
+                    if useIMK:
+                        # Model hinges as IMK with Monotonic backbone and degradation
+                        tclfile.write("# Story%iPier%i\n" % (i, j))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iTag\t%i;\n" % (i, j, material_tag))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iK0\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['K0'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iAs\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['as'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iMy\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['My'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iLambda\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['Lambda'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaP\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_p'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaPc\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_pc'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iResidual\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['residual'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaU\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_u'])))
+                        tclfile.write("CreateIMKMaterial\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iK0" % (i, j))
+                        tclfile.write("\t$n")
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iAs" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMy" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iLambda" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaP" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaPc" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iResidual" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaU;\n\n" % (i, j))
+                    else:                        
+                        # Model hinges as HYSTERETIC with first cycle backbone
+                        tclfile.write("# Story%iPier%i\n" % (i, j))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iTag\t%i;\n" % (i, j, material_tag))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iEIeff\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['EIeff'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%ieleLength\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['eleLength'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iMy\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['My'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iMcMy\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['McMy'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaP\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_p'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaPc\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_pc'])))
+                        tclfile.write("set\tColumnHingeMaterialStory%iPier%iResidual\t%.4f;\n"
+                                      % (i, j, (column_set[i-1][j-1].plastic_hinge['residual'])))
+                        tclfile.write("matHysteretic\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iEIeff" % (i, j))                        
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%ieleLength" % (i, j))
+                        tclfile.write("\t$n")
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMy" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMcMy" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaP" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaPc" % (i, j))
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iResidual" % (i, j))
+                        tclfile.write("\t$Composite")
+                        tclfile.write("\t$compBackboneFactors")
+                        tclfile.write("\t$Pinching;\n\n")
+                    
+                    material_tag += 1
+            tclfile.write("\n\nputs \"Column hinge materials defined\"")
+
+    def write_EGF_column_hinge_material(self, building, column_set_EGF, add_gravity_frame):
+        """
+        Create a .tcl file to define all column plastic hinge materials using modified IMK material model
         :param building: a class defined in "building_information.py"
         :param column_set: a list[x][y] and each element is a class defined in "column_component.py" file
         :return: a .tcl file
         """
-        material_tag = 60001
-        with open(os.path.join(building.directory['building nonlinear model'], 'DefineColumnHingeMaterials2DModel.tcl'), 'w') as tclfile:
-            tclfile.write("# This file will be used to define column hinge material models\n\n\n")
-            for i in range(1, building.geometry['number of story']+1):  # i is story number (from 1)
-                for j in range(1, building.geometry['number of X bay']+2):  # j is pier number (1 for leftmost pier)
-                    tclfile.write("# Story%iPier%i\n" % (i, j))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iTag\t%i;\n" % (i, j, material_tag))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iK0\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['K0'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iAs\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['as'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iMy\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['My'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iLambda\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['Lambda'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaP\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_p'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaPc\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_pc'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iResidual\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['residual'])))
-                    tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaU\t%.4f;\n"
-                                  % (i, j, (column_set[i-1][j-1].plastic_hinge['theta_u'])))
-                    tclfile.write("CreateIMKMaterial\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iK0" % (i, j))
-                    tclfile.write("\t$n")
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iAs" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMy" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iLambda" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaP" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaPc" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iResidual" % (i, j))
-                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaU;\n\n" % (i, j))
-                    material_tag += 1
-            tclfile.write("\n\nputs \"Column hinge materials defined\"")
+        
+        useIMK = column_set_EGF[0][0].useIMK
+        
+        material_tag = 80001
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineEGFColumnHingeMaterials2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define column hinge material models\n\n\n")        
+            
+            if not useIMK:
+                tclfile.write("set\tComposite\t0;\n")
+                tclfile.write("set\tcompBackboneFactors\t0;\n")
+                tclfile.write("set\tPinching\t0;\n\n")
+            
+            if add_gravity_frame:            
+                for i in range(1, building.geometry['number of story']+1):  # i is story number (from 1)
+                
+                    # Count gravity columns
+                    n_gravity_columns = building.member_size_EGF['bays'][i-1] * 2 / building.geometry['number of X LFRS'] #Number of gravity columns that help one frame                
+                    tclfile.write("set n_gravity_columns_Story%i %.2f\n\n" % (i, n_gravity_columns))
+                    
+                    for j in [0, 1]:  # j is pier number (0: left column of EGF, 1: right column of EGF)
+                        if useIMK:
+                            # Model hinges as IMK with Monotonic backbone and degradation                        
+                            tclfile.write("# Story%iPier%i\n" % (i, j))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iTag\t%i;\n" % (i, j+building.geometry['number of X bay']+2, material_tag))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iK0\t[expr $n_gravity_columns_Story%i*0.5*%.4f];\n"
+                                          % (i, j+building.geometry['number of X bay']+2, i, (column_set_EGF[i-1][0].plastic_hinge['K0'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iAs\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['as'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iMy\t[expr $n_gravity_columns_Story%i*0.5*%.4f];\n"
+                                          % (i, j+building.geometry['number of X bay']+2, i, (column_set_EGF[i-1][0].plastic_hinge['My'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iLambda\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['Lambda'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaP\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['theta_p'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaPc\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['theta_pc'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iResidual\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['residual'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaU\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][0].plastic_hinge['theta_u'])))
+                            tclfile.write("CreateIMKMaterial\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iK0" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$n")
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iAs" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMy" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iLambda" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaP" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaPc" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iResidual" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaU;\n\n" % (i, j+building.geometry['number of X bay']+2))                            
+                        else:
+                            # Model hinges as HYSTERETIC with first cycle backbone
+                            tclfile.write("# Story%iPier%i\n" % (i, j))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iTag\t%i;\n" % (i, j+building.geometry['number of X bay']+2, material_tag))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iEIeff\t[expr $n_gravity_columns_Story%i*0.5*%.4f];\n"
+                                          % (i, j+building.geometry['number of X bay']+2, i, (column_set_EGF[i-1][j-1].plastic_hinge['EIeff'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%ieleLength\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][j-1].plastic_hinge['eleLength'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iMy\t[expr $n_gravity_columns_Story%i*0.5*%.4f];\n"
+                                          % (i, j+building.geometry['number of X bay']+2, i, (column_set_EGF[i-1][j-1].plastic_hinge['My'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iMcMy\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][j-1].plastic_hinge['McMy'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaP\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][j-1].plastic_hinge['theta_p'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iThetaPc\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][j-1].plastic_hinge['theta_pc'])))
+                            tclfile.write("set\tColumnHingeMaterialStory%iPier%iResidual\t%.4f;\n"
+                                          % (i, j+building.geometry['number of X bay']+2, (column_set_EGF[i-1][j-1].plastic_hinge['residual'])))
+                            tclfile.write("matHysteretic\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iEIeff" % (i, j+building.geometry['number of X bay']+2))                        
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%ieleLength" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$n")
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMy" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iMcMy" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaP" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iThetaPc" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$ColumnHingeMaterialStory%iPier%iResidual" % (i, j+building.geometry['number of X bay']+2))
+                            tclfile.write("\t$Composite")
+                            tclfile.write("\t$compBackboneFactors")
+                            tclfile.write("\t$Pinching;\n\n")
+                        
+                        material_tag += 1                                                       
+                tclfile.write("\n\nputs \"Column hinge materials defined\"")
+            else:
+                tclfile.write("\n\nputs \"Modeling leaning column not EGF\"")
 
-    def write_beam(self, building):
+    def write_beam(self, building, composite_section):
         """
         Create a .tcl file to define the beam element
         :param building: a class defined in "building_information.py" file
@@ -318,6 +639,11 @@ class NonlinearAnalysis(object):
         """
         with open(os.path.join(building.directory['building nonlinear model'], 'DefineBeams2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam elements \n\n\n")
+            
+            if composite_section:
+                tclfile.write("\n\n# Stiffness amplification factor for composite beam\n")                
+                tclfile.write("set\tComp_I\t%0.2f; # stiffness factor for MR frame beams\n" % (building.Comp_I))
+                            
             tclfile.write("# Define beam section sizes \n")
             for i in range(2, building.geometry['number of story']+2):  # i is the floor level (from 2)
                 tclfile.write("set\tBeamLevel%i\t[SectionProperty %s];\n" % (i, building.member_size['beam'][i-2]))
@@ -331,18 +657,12 @@ class NonlinearAnalysis(object):
                     tclfile.write("\t%i%i%i%i" % (j, i+10, 1, 5))  # Starting node
                     tclfile.write("\t%i%i%i%i" % (j+1, i+10, 1, 3))  # Ending node
                     tclfile.write("\t[expr 100*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified axial stiffness for diaphragm action)
-                    tclfile.write("\t$Es")  # Young's modulus of steel material
-                    tclfile.write("\t[expr ($n+1.0)/$n*[lindex $BeamLevel%i 6]]" % i)  # Modified moment of inertia
+                    tclfile.write("\t%.2f" % building.steel.E)  # Young's modulus of steel material                    
+                    if composite_section:
+                        tclfile.write("\t[expr $Comp_I*($n+1.0)/$n*[lindex $BeamLevel%i 6]]" % i)  # Modified moment of inertia of beam section amplified by composite action
+                    else:
+                        tclfile.write("\t[expr ($n+1.0)/$n*[lindex $BeamLevel%i 6]]" % i)  # Modified moment of inertia
                     tclfile.write("\t$LinearTransf; \n")  # Geometric transformation
-
-                # Truss elements connecting frame and leaning column
-                tclfile.write("element\ttruss")  # elastic beam-column command
-                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
-                                                  building.geometry['number of X bay']+2, i))
-                tclfile.write("\t%i%i%i%i" % (building.geometry['number of X bay']+1, i+10, 1, 1))  # Start node in frame
-                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
-                tclfile.write("\t$AreaRigid\t$TrussMatID; \n")  # Large area and truss element material
-                tclfile.write("\n")
             tclfile.write("puts \"Beams defined\"")
 
     def write_column(self, building):
@@ -380,28 +700,35 @@ class NonlinearAnalysis(object):
                     # this would affect the column section size
                     if 1 < j < building.geometry['number of X bay']+1:
                         tclfile.write("\t[lindex $InteriorColumnStory%i 2]" % i)  # Area of section
-                        tclfile.write("\t$Es")  # Young's modulus of steel material
+                        tclfile.write("\t%.2f" % building.steel.E)  # Young's modulus of steel material
                         tclfile.write("\t[expr ($n+1.0)/$n*[lindex $InteriorColumnStory%i 6]]" % i)  # Modified inertia
                     else:
                         tclfile.write("\t[lindex $ExteriorColumnStory%i 2]" % i)  # Area of section
-                        tclfile.write("\t$Es")  # Young's modulus of steel material
+                        tclfile.write("\t%.2f" % building.steel.E)  # Young's modulus of steel material
                         tclfile.write("\t[expr ($n+1.0)/$n*[lindex $ExteriorColumnStory%i 6]]" % i)  # Modified inertia
                     tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation
-
-                # Leaning column elements
-                tclfile.write("element\telasticBeamColumn")  # element command
-                if i == 1:
-                    tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
-                                                      building.geometry['number of X bay']+2, i+1))
-                    tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))
-                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
-                else:
-                    tclfile.write("\t%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i, 4,
-                                                        building.geometry['number of X bay']+2, i+1))
-                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 4))
-                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
-                tclfile.write("\t$AreaRigid\t$Es\t$IRigid\t$PDeltaTransf; \n\n")
             tclfile.write("puts \"Columns defined\"")
+
+
+    def write_links_to_EGF(self, building):
+        # Create a .tcl file to write beam elements
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineLinksEGF2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define beam elements for the leaning column \n\n\n")
+
+            tclfile.write("# Define beams leaning column \n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("# Level %i\n" % i)
+                
+                # Beam elements connection frame and leaning column
+                tclfile.write("element\ttruss")  # elastic beam-column command
+                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
+                                                  building.geometry['number of X bay']+2, i))
+                tclfile.write("\t%i%i%i%i" % (building.geometry['number of X bay']+1, i+10, 1, 1))  # Starting node in frame
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
+                tclfile.write("\t$AreaRigid\t$TrussMatID; \n")  # Large area and truss element material
+
+            tclfile.write("# puts \"Beams leaning column defined\"")
+
 
     def write_beam_hinge(self, building):
         """
@@ -455,31 +782,207 @@ class NonlinearAnalysis(object):
                         tclfile.write("\t$ColumnHingeMaterialStory%iPier%iTag" % (i, j))  # associated modified IMK
                         tclfile.write("\t$StiffMatID;\n")  # stiff material
                     tclfile.write("\n")
-            tclfile.write("# Rotational springs for leaning column\n")
-            for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
-                # Write the springs below floor level i
-                tclfile.write("rotLeaningCol")  # procedure command to create rotational spring of leaning column
-                tclfile.write("\t%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
-                                                  building.geometry['number of X bay']+2, i))  # spring ID
-                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # node at floor level
-                tclfile.write("\t%i%i%i20\t$StiffMatID;"
-                              % (building.geometry['number of X bay']+2, i, 2))  # node below floor level
-                tclfile.write("\t# Spring below floor level %i \n" % i)  # comment to explain the location of the sprubg
+            tclfile.write("puts \"Column hinge defined\"")
 
-                # Write the springs above floor level i
-                # If it is roof, no springs above the roof
+    def write_leaning_column(self, building):
+        # Create a .tcl file to define all column elements
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineEGF2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define leaning column \n\n\n")
+
+            tclfile.write("\n\n# Define leaning column\n")
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("# Story %i \n" % i)                
+                # Leaning column elements
+                tclfile.write("element\telasticBeamColumn")  # element command
+                if i == 1:
+                    tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i,
+                                                      building.geometry['number of X bay']+2, i+1))
+                    tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
+                else:
+                    tclfile.write("\t%i%i%i%i%i%i" % (3, building.geometry['number of X bay']+2, i, 4,
+                                                        building.geometry['number of X bay']+2, i+1))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i+1, 2))
+                tclfile.write("\t$AreaRigid\t%.2f\t$IRigid\t$PDeltaTransf; \n" % building.steel.E)
+                
+            tclfile.write("# puts \"Leaning columns defined\"")                
+    
+    def write_leaning_column_spring(self, building):
+        # Create a .tcl file to write all rotational springs for leaning column
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineEGFSpring.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define column hinges \n\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # Spring below the floor level i
+                tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
+                tclfile.write("\t%i%i%i%i%i" % (building.geometry['number of X bay']+2, i,
+                                                building.geometry['number of X bay']+2, i, 2))  # Spring tag
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node at floor level
+                tclfile.write("\t%i%i%i20\t$StiffMatID" % (building.geometry['number of X bay']+2, i, 2))  # Node below floor level
+                tclfile.write("\t1e-9;")  # Rotational stiffness of the elastic spring
+                tclfile.write("\t# Spring below floor level %i \n" % i)
+
+                # Spring above floor level i
+                # If it's roof, no rotational spring exists above roof
                 if i < building.geometry['number of story']+1:
                     tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
-                    tclfile.write("\t%i%i%i%i%i" % (6, building.geometry['number of X bay']+2, i,
-                                                      building.geometry['number of X bay'], i))  # Spring tag
+                    tclfile.write("\t%i%i%i%i%i" % (building.geometry['number of X bay']+2, i,
+                                                    building.geometry['number of X bay'], i, 4))  # Spring tag
                     tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node at floor level
                     # Node above floor level
-                    tclfile.write("\t%i%i%i20\t$StiffMatID;" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t%i%i%i20\t$StiffMatID" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t1e-9;")  # Rotational stiffness of the elastic spring
                     tclfile.write("\t# Spring above floor level %i \n" % i)
                 else:
                     pass
             tclfile.write("\n")
-            tclfile.write("puts \"Column hinge defined\"")
+            tclfile.write("# puts \"Leaning column springs defined\"")
+
+    def write_EGF(self, building, composite_section):
+        # Create a .tcl file to define all column elements
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineEGF2DModel.tcl'), 'w') as tclfile:            
+            tclfile.write("# This file will be used to define the EGF \n\n")
+            tclfile.write("\n\n# Define gravity columns\n")
+            
+            # Define column sizes
+            tclfile.write("# Define EGF column section sizes \n")
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("set\tEGFColumnStory%i\t[SectionProperty %s]; \n"
+                              % (i, building.member_size_EGF['column'][i-1]))
+            
+                # Calculate number of gravity columns that help one frame 
+                n_gravity_columns = building.member_size_EGF['bays'][i-1] * 2 / building.geometry['number of X LFRS']
+                tclfile.write("set\tn_gravity_columnsStory%i\t%i; \n" % (i, n_gravity_columns))
+            tclfile.write("\n") 
+            
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("# Story %i \n" % i)                
+                # Column elements (2: left column, 3: right column)
+                for j in [2, 3]:
+                    tclfile.write("element\telasticBeamColumn")  # element command
+                    if i == 1:
+                        tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+j, i,
+                                                          building.geometry['number of X bay']+j, i+1)) # element tag
+                        tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+j, i)) # bottom node
+                        tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+j, i+1, 2)) # top node
+                    else:
+                        tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+j, i,
+                                                            building.geometry['number of X bay']+j, i+1)) # element tag
+                        tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+j, i, 4)) # bottom node
+                        tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+j, i+1, 2)) # top node
+                    tclfile.write("\t[expr $n_gravity_columnsStory%i*0.5*[lindex $EGFColumnStory%i 2]]" % (i, i))  # Area of column section 
+                    tclfile.write("\t%.2f" % building.steel.E)  # Young's modulus of steel material
+                    tclfile.write("\t[expr $n_gravity_columnsStory%i*0.5*[lindex $EGFColumnStory%i 6]]" % (i, i))  # Moment of inertia of column section
+                    tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation 
+                                                                          
+            tclfile.write("# puts \"EGF columns defined\"")
+            
+            tclfile.write("\n\n# Define gravity girders \n")
+            
+            if composite_section:
+                tclfile.write("\n\n# Stiffness amplification factor for composite beam\n")                
+                tclfile.write("set\tComp_I_GC\t%0.2f; # stiffness factor for MR frame beams\n\n" % (building.Comp_I_GC))            
+            
+            tclfile.write("# Define beam section sizes \n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("set\tEGFBeamLevel%i\t[SectionProperty %s]; \n" % (i, building.member_size_EGF['girder'][i-2]))
+            
+                # Calculate number of gravity columns that help one frame
+                n_gravity_girders = building.member_size_EGF['bays'][i-2] / building.geometry['number of X LFRS']
+                tclfile.write("set\tn_gravity_girdersLevel%i\t%i; \n" % (i, n_gravity_girders))                      
+            tclfile.write("\n") 
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("# Level %i\n" % i)
+                
+                # Beam elements connection frame and leaning column
+                tclfile.write("element\telasticBeamColumn")  # elastic beam-column command
+                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+2, i,
+                                                  building.geometry['number of X bay']+3, i)) # element tag
+                tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 3))  # Ending node in left column
+                tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+3, i, 5))  # Ending node in right column
+                tclfile.write("\t[expr $n_gravity_girdersLevel%i*[lindex $EGFBeamLevel%i 2]]" % (i, i))  # Area of beam section
+                tclfile.write("\t%.2f" % building.steel.E)  # Young's modulus of steel material
+                if composite_section:
+                    tclfile.write("\t[expr $n_gravity_girdersLevel%i*$Comp_I_GC*[lindex $EGFBeamLevel%i 6]]" % (i, i))  # Moment of inertia of beam section   
+                else:
+                    tclfile.write("\t[expr $n_gravity_girdersLevel%i*[lindex $EGFBeamLevel%i 6]]" % (i, i))  # Moment of inertia of beam section
+                tclfile.write("\t$LinearTransf; \n")  # Geometric transformation 
+            tclfile.write("# puts \"Beams leaning column defined\"")   
+    
+    def write_EGF_spring(self, building, composite_section): 
+        # Create a .tcl file to write all rotational springs for leaning column
+        with open(os.path.join(building.directory['building nonlinear model'], 'DefineEGFSpring.tcl'), 'w') as tclfile:
+            
+            tclfile.write("# This file will be used to define column hinges \n\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # Column elements (2: left column, 3: right column)                
+                for j in [2, 3]:                                
+                    # Spring below the floor level i
+                    tclfile.write("rotColumnSpring")  # rotLeaningCol is user-defined process in OpenSees
+                    tclfile.write("\t%i%i%i%i%i20" % (building.geometry['number of X bay']+j, i,
+                                                    building.geometry['number of X bay']+j, i, 2))  # Spring tag
+                    tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+j, i))  # Node at floor level
+                    tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+j, i, 2))  # Node below floor level
+                    tclfile.write("\t$ColumnHingeMaterialStory%iPier%iTag" % (i-1, building.geometry['number of X bay']+j))  # Hinge material ID
+                    tclfile.write("\t$StiffMatID;")
+                    tclfile.write("\t# Spring below floor level %i \n" % i)
+    
+                    # Spring above floor level i
+                    # If it's roof, no rotational spring exists above roof
+                    if i < building.geometry['number of story']+1:
+                        tclfile.write("rotColumnSpring")  # rotLeaningCol is user-defined process in OpenSees
+                        tclfile.write("\t%i%i%i%i%i20" % (building.geometry['number of X bay']+j, i,
+                                                        building.geometry['number of X bay'], i, 4))  # Spring tag
+                        tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+j, i))  # Node at floor level                        
+                        tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+j, i, 4)) # Node above floor level                         
+                        tclfile.write("\t$ColumnHingeMaterialStory%iPier%iTag" % (i-1, building.geometry['number of X bay']+j))  # Hinge material ID
+                        tclfile.write("\t$StiffMatID;")
+                        tclfile.write("\t# Spring above floor level %i \n\n" % i)
+                else:
+                    pass
+            
+            tclfile.write("\n")            
+            tclfile.write("# puts \"Gravity column springs defined\"")
+            
+            tclfile.write("\n\n# This file will be used to define beam hinges \n\n")
+            for i in range(2, building.geometry['number of story']+2):
+                
+                # Calculate elastic stiffness (Elkady and Lignos, 2015)
+                section_size = building.member_size_EGF['girder'][i-2]
+                section = search_section_property(section_size, building.SECTION_DATABASE_AISC)                
+                Mp = building.steel.Ry * building.steel.Fy * section['Zx']
+                n_gravity_girders = building.member_size_EGF['bays'][i-2] / building.geometry['number of X LFRS']
+                
+                if composite_section:                    
+                    type_model = 1 # Composite Shear Connection with Stiffeneing due to Binding
+                else:
+                    type_model = 0 # bare section
+                
+                # Spring left the floor level i
+                tclfile.write("Spring_Pinching")  # rotLeaningCol is user-defined process in OpenSees
+                tclfile.write("\t%i%i%i%i%i20" % (building.geometry['number of X bay']+2, i,
+                                                building.geometry['number of X bay']+2, i, 3))  # Spring tag
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, i))  # Node at floor level
+                tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+2, i, 3))  # Node at left of the beam                
+                tclfile.write("\t%.2f" % (Mp*n_gravity_girders))  # Plastic strength of all gravity girders
+                tclfile.write("\t%.2f" % (building.gap))  # gap between beam and face of the column
+                tclfile.write("\t%i;" % (type_model))  # modeling type
+                tclfile.write("\t# Spring left side of the beam at floor level %i \n" % i)
+
+                # Spring right floor level i
+                tclfile.write("Spring_Pinching")  # rotLeaningCol is user-defined process in OpenSees
+                tclfile.write("\t%i%i%i%i%i20" % (building.geometry['number of X bay']+3, i,
+                                                building.geometry['number of X bay']+3, i, 5))  # Spring tag
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+3, i))  # Node at floor level
+                tclfile.write("\t%i%i%i20" % (building.geometry['number of X bay']+3, i, 5)) # Node right of the beam
+                tclfile.write("\t%.2f" % (Mp*n_gravity_girders))  # Plastic strength of all gravity girders
+                tclfile.write("\t%.2f" % (building.gap))  # gap between beam and face of the column
+                tclfile.write("\t%i;" % (type_model))  # modeling type
+                tclfile.write("\t# Spring right side of the beam at floor level %i \n\n" % i)
+                
+            tclfile.write("\n")            
+            tclfile.write("# puts \"Gravity beam springs defined\"")
+            
 
     def write_mass(self, building):
         """
@@ -526,40 +1029,83 @@ class NonlinearAnalysis(object):
                 for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
                     tclfile.write("elemPanelZone2D\t%i%i%i%i%i%i" % (8, 0, 0, j, i+10, 1))  # panel zone starting element tag
                     tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 1))  # first node in panel zone (top left corner)
-                    tclfile.write("\t$Es\t$PDeltaTransf\t$LinearTransf;  \n")
+                    tclfile.write("\t%.2f\t$PDeltaTransf\t$LinearTransf;  \n" % building.steel.E)
                 tclfile.write("\n")
             tclfile.write("puts \"Panel zone elements defined\"")
 
-    def write_panel_zone_springs(self, building, column_set, beam_set, connection_set):
+    def write_panel_zone_springs(self, building, column_set, beam_set, connection_set, composite_section):
         # Create a .tcl file that defines the springs involved in panel zones
         with open(os.path.join(building.directory['building nonlinear model'], 'DefinePanelZoneSprings.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define springs in panel zone \n\n")
-            tclfile.write("# Procedure command:\n")
-            tclfile.write("# rotPanelZone2D\teleID\tnodeR\tnodeC\tE\tFy\tdc\tbf_c\ttf_c\ttp\tdb\tRy\tas\n\n")
-            for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
-                tclfile.write("# Level%i\n" % i)
-                for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
-                    tclfile.write("rotPanelZone2D\t%i%i%i%i%i%i" % (9, j, i+10, 1, 0, 0))  # panel zone spring tag
-                    tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 3))  # node tag at top right corner of panel zone
-                    tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 4))  # node tag at top right corner of panel zone
-                    tclfile.write("\t$Es\t$Fy")  # Young's modulus and Yielding stress
-                    tclfile.write("\t%.2f" % column_set[i-2][j-1].section['d'])  # column depth
-                    tclfile.write("\t%.2f" % column_set[i-2][j-1].section['bf'])  # column flange width
-                    tclfile.write("\t%.2f" % column_set[i-2][j-1].section['tf'])  # column flange thickness
-                    # Use actual panel zone thickness rather than the assumed column web thickness
-                    tclfile.write("\t%.2f" % (column_set[i-2][j-1].section['tw']
-                                              + connection_set[i-2][j-1].doubler_plate_thickness))  # panel zone thickness
-                    if j != building.geometry['number of X bay']+1:
-                        # note that j is the column number.
-                        # the number of beam at each floor level is one less than that of columns
-                        tclfile.write("\t%.2f" % beam_set[i-2][j-1].section['d'])  # beam depth
-                    else:
-                        tclfile.write("\t%.2f" % beam_set[i-2][-1].section['d'])  # beam depth
-                    tclfile.write("\t1.1\t0.03; \n")  # Ry value and as value (both of them are constant)
-                tclfile.write("\n")
-            tclfile.write("puts \"Panel zone springs defined\"")
+                       
+            tclfile.write("# Procedure command:\n")            
+            
+            if building.panel_zone_model == 'Elkady2021':
+                
+                tclfile.write("# Spring_PZ\teleID\tnodeR\tnodeC\tE\tmu\tFy\ttw_Col\ttdp\tdc\tdb\ttf_c\tbfc\tIx_col\tn\ttrib\tts\tResponse_ID\n\n")
+                for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
+                    tclfile.write("# Level%i\n" % i)
+                    for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
+                        tclfile.write("Spring_PZ\t%i%i%i%i%i%i" % (9, j, i+10, 1, 0, 0))  # panel zone spring tag
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 3))  # node tag at top right corner of panel zone
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 4))  # node tag at top right corner of panel zone
+                        tclfile.write("\t%.2f\t%.2f\t%.2f" % (building.steel.E, building.steel.poisson_ratio, building.steel.Fy))  # Young's modulus, Poisson ratio, and Yielding stress
+                        tclfile.write("\t%.2f" % (column_set[i-2][j-1].section['tw'])) # column web thickness
+                        tclfile.write("\t%.2f" % (connection_set[i-2][j-1].doubler_plate_thickness))  # doubler plate thickness
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['d'])  # column depth
+                        if j != building.geometry['number of X bay']+1:
+                            # note that j is the column number.
+                            # the number of beam at each floor level is one less than that of columns
+                            tclfile.write("\t%.2f" % beam_set[i-2][j-1].section['d'])  # beam depth
+                        else:
+                            tclfile.write("\t%.2f" % beam_set[i-2][-1].section['d'])  # beam depth
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['tf'])  # column flange thickness
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['bf'])  # column flange width
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['Ix'])  # column flange width
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].demand_capacity_ratio['axial'])
+                        tclfile.write("\t%.2f" % building.trib)
+                        tclfile.write("\t%.2f" % building.ts)
+                        if composite_section:
+                            if j == 1 or j == building.geometry['number of X bay']+1:
+                                # exterior column
+                                tclfile.write("\t1; \n")
+                            else:
+                                # interior panel zone
+                                tclfile.write("\t0; \n")
+                        else:
+                            # bare section panel zone
+                            tclfile.write("\t2; \n")
+                    tclfile.write("\n")
+                tclfile.write("puts \"Panel zone springs defined\"")
+            
+            else:
+                
+                tclfile.write("# rotPanelZone2D\teleID\tnodeR\tnodeC\tE\tFy\tdc\tbf_c\ttf_c\ttp\tdb\tRy\tas\n\n")
+                for i in range(2, building.geometry['number of story']+2):  # i refers to the floor level number
+                    tclfile.write("# Level%i\n" % i)
+                    for j in range(1, building.geometry['number of X bay']+2):  # j refers to the column number
+                        tclfile.write("rotPanelZone2D\t%i%i%i%i%i%i" % (9, j, i+10, 1, 0, 0))  # panel zone spring tag
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 3))  # node tag at top right corner of panel zone
+                        tclfile.write("\t%i%i%i%i" % (j, i+10, 0, 4))  # node tag at top right corner of panel zone
+                        tclfile.write("\t%.2f\t%.2f" % (building.steel.E, building.steel.Fy))  # Young's modulus, Poisson ratio, and Yielding stress
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['d'])  # column depth
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['bf'])  # column flange width
+                        tclfile.write("\t%.2f" % column_set[i-2][j-1].section['tf'])  # column flange thickness
+                        # Use actual panel zone thickness rather than the assumed column web thickness
+                        tclfile.write("\t%.2f" % (column_set[i-2][j-1].section['tw']
+                                                  + connection_set[i-2][j-1].doubler_plate_thickness))  # panel zone thickness
+                        if j != building.geometry['number of X bay']+1:
+                            # note that j is the column number.
+                            # the number of beam at each floor level is one less than that of columns
+                            tclfile.write("\t%.2f" % beam_set[i-2][j-1].section['d'])  # beam depth
+                        else:
+                            tclfile.write("\t%.2f" % beam_set[i-2][-1].section['d'])  # beam depth
+                        tclfile.write("\t1.1\t0.03; \n")  # Ry value and as value (both of them are constant)
+                    tclfile.write("\n")
+                tclfile.write("puts \"Panel zone springs defined\"")                
+            
 
-    def write_gravity_load(self, building):
+    def write_gravity_load(self, building, add_gravity_frame):
         # Create a .tcl file to write gravity load: 1.00 DL + 0.25 LL
         with open(os.path.join(building.directory['building nonlinear model'], 'DefineGravityLoads2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define expected gravity loads\n\n\n")
@@ -619,19 +1165,32 @@ class NonlinearAnalysis(object):
                     if j == 1 or j == building.geometry['number of X bay']+1:
                         # Exterior panel zone
                         tclfile.write("\t0\t[expr (-1*$BeamDeadLoadFloor%i - "
-                                  "0.25*$BeamLiveLoadFloor%i)*$BayWidth/2]\t0;\n" % (i, i))
+                                  "0.25*$BeamLiveLoadFloor%i)*$BayWidth*0.5]\t0;\n" % (i, i))
                     else:
                         # Interior panel zone
                         tclfile.write("\t0\t[expr (-1*$BeamDeadLoadFloor%i - "
                                   "0.25*$BeamLiveLoadFloor%i)*$BayWidth]\t0;\n" % (i, i))
             tclfile.write("\n")
-            # Gravity load on leaning column
-            tclfile.write("# Define point loads on leaning column\n")
-            for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i20\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i - "
+            
+            if add_gravity_frame:
+                # loads on EGF columns
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i20\t0\t[expr -0.50*$LeaningColumnDeadLoadFloor%i - "
+                              "0.25*0.5*$LeaningColumnLiveLoadFloor%i]\t0;\n"
+                              % (building.geometry['number of X bay']+2, i, i, i))
+                    tclfile.write("load\t%i%i20\t0\t[expr -0.5*$LeaningColumnDeadLoadFloor%i - "
+                              "0.25*0.5*$LeaningColumnLiveLoadFloor%i]\t0;\n"
+                                  % (building.geometry['number of X bay']+3, i, i, i))
+                tclfile.write("\n}\n")
+            else:
+                # loads on leaning column
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i20\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i - "
                               "0.25*$LeaningColumnLiveLoadFloor%i]\t0;\n"
                               % (building.geometry['number of X bay']+2, i, i, i))
-            tclfile.write("\n}\n")
+                tclfile.write("\n}\n")
 
             tclfile.write("puts \"Expected gravity loads defined\"")
 
@@ -650,7 +1209,7 @@ class NonlinearAnalysis(object):
                 tclfile.write("\n")
             tclfile.write("}")
 
-    def write_base_reaction_recorder(self, building):
+    def write_base_reaction_recorder(self, building, add_gravity_frame):
         # Create a .tcl file to write the recorders for base reactions
         with open(os.path.join(building.directory['building nonlinear model'], 'DefineBaseReactionRecorders2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define base node reaction recorders\n\n\n")
@@ -660,17 +1219,27 @@ class NonlinearAnalysis(object):
             tclfile.write("# Vertical reactions\n")
             tclfile.write("recorder\tNode\t-file\tVerticalReactions.out\t-time\t-node")            
             for j in range(1, building.geometry['number of X bay']+2):
-                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0)) # frame columns            
-            tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # leaning column
-            tclfile.write("\t-dof\t2\treaction;\n\n")
+                tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0)) # frame columns    
+            if add_gravity_frame:
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # left column EGF
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+3, 1)) # right column EGF
+                tclfile.write("\t-dof\t2\treaction;\n\n")
+            else:
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # leaning column
+                tclfile.write("\t-dof\t2\treaction;\n\n")
 
             # Record horizontal reactions
             tclfile.write("# X-Direction reactions\n")
             tclfile.write("recorder\tNode\t-file\tXReactions.out\t-time\t-node")
             for j in range(1, building.geometry['number of X bay']+2):
                 tclfile.write("\t%i%i%i%i" % (j, 1+10, 1, 0))
-            tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1))
-            tclfile.write("\t-dof\t1\treaction;\n\n")
+            if add_gravity_frame:   
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # left column EGF
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+3, 1)) # right column EGF
+                tclfile.write("\t-dof\t1\treaction;\n\n")
+            else:
+                tclfile.write("\t%i%i20" % (building.geometry['number of X bay']+2, 1)) # leaning column
+                tclfile.write("\t-dof\t1\treaction;\n\n")
 
     def write_beam_hinge_recorder(self, building):
         # Create a .tcl file to record beam hinge forces and deformation
@@ -882,7 +1451,7 @@ class NonlinearAnalysis(object):
             tclfile.write("# This file will be used to define damping\n\n")
 
             tclfile.write("# A damping ratio of 2% is used for steel buildings\n")
-            tclfile.write("set\tdampingRatio\t0.02;\n")
+            tclfile.write("set\tdampingRatio\t%.2f;\n" % building.damping_ratio)
 
             tclfile.write("# Define the value for pi\n")
             tclfile.write("set\tpi\t[expr 2.0*asin(1.0)];\n\n")

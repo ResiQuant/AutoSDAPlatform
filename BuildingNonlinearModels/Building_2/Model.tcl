@@ -19,6 +19,7 @@ source DefineFunctionsAndProcedures.tcl
 
 # Defining nodes
 source DefineNodes2DModel.tcl
+source DefineNodes2DModelEGF.tcl
 
 # Defining node fixities
 source DefineFixities2DModel.tcl
@@ -43,6 +44,18 @@ source DefineBeamHinges2DModel.tcl
 
 # Defining column hinges
 source DefineColumnHinges2DModel.tcl
+
+# Defining links from frame to equivalent gravity frame or leaning column
+source DefineLinksEGF2DModel.tcl
+
+# Defining EGF column hinge material models
+source DefineEGFColumnHingeMaterials2DModel.tcl
+
+# Defining column elements for equivalent gravity frame or leaning column
+source DefineEGF2DModel.tcl
+
+# Defining rotational springs for leaning columns
+source DefineEGFSpring.tcl
 
 # Defining masses
 source DefineMasses2DModel.tcl

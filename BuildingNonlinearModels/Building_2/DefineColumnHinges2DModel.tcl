@@ -49,11 +49,4 @@ rotColumnSpring	64426	41412	41416	$ColumnHingeMaterialStory3Pier4Tag	$StiffMatID
 rotColumnSpring	65426	51412	51416	$ColumnHingeMaterialStory3Pier5Tag	$StiffMatID;
 rotColumnSpring	66426	61412	61416	$ColumnHingeMaterialStory3Pier6Tag	$StiffMatID;
 
-# Rotational springs for leaning column
-rotLeaningCol	67272	7220	72220	$StiffMatID;	# Spring below floor level 2 
-rotLeaningCol	67252	7220	72420	$StiffMatID;	# Spring above floor level 2 
-rotLeaningCol	67373	7320	73220	$StiffMatID;	# Spring below floor level 3 
-rotLeaningCol	67353	7320	73420	$StiffMatID;	# Spring above floor level 3 
-rotLeaningCol	67474	7420	74220	$StiffMatID;	# Spring below floor level 4 
-
 puts "Column hinge defined"

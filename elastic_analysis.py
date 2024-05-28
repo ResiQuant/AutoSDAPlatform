@@ -5,6 +5,7 @@
 import os
 import shutil
 import time
+from help_functions import search_section_property
 
 # #########################################################################
 #              Generate OpenSees model (write .tcl files)                 #
@@ -33,17 +34,24 @@ class ElasticAnalysis(object):
     (18) run OpenSees.exe
     """
 
-    def __init__(self, building, for_drift_only=False, for_period_only=False):
+    def __init__(self, building, for_drift_only=False, for_period_only=False, add_gravity_frame=False, composite_section=False):
         """
         This function is used to call all methods to write .tcl files required for an elastic analysis OpenSees model.
         :param building: a class defined in "building_information.py" file
-        :param for_drift_only: a boolean variable.
-                               True means we only perform the elastic analysis under GravityEarthquake loads.
-                               Otherwise, all load types (dead, live, earthquake) will be considered.
-        :param for_period_only: a boolean variable.
-                                True means we only perform the eigen value analysis to obtain the period
-                                Otherwise, all load types will be considered.
+        :param for_drift_only: (bool)
+                               False =  we only perform the elastic analysis under GravityEarthquake loads.
+                               False =  all load types (dead, live, earthquake) will be considered.
+        :param for_period_only: (bool)
+                                True  = we only perform the eigen value analysis to obtain the period
+                                False =  all load types will be considered.
+        :add_gravity_frame: (bool)
+                            True  = add a one bay frame that captures stiffness of the gravity frame\
+                            False = Add leaning column only
+        :composite_section: (bool)
+                            True  = Add stiffness amplification factors to the beams to consider composite action
+                            False = Beams modeles with bare section stiffness     
         """
+
         # Change the working directory to folder where .tcl files will be saved
         #currDir = os.getcwd()
         if not os.path.exists(building.directory['building elastic model']):
@@ -51,11 +59,22 @@ class ElasticAnalysis(object):
 
         # Call methods to write .tcl files for the building
         self.write_nodes(building)
-        self.write_fixities(building)
         # self.write_floor_constraint(building) # do not use rigid diaphragm constraint due to numerical issues caused and no better result
-        self.write_beam(building)
+        self.write_beam(building, composite_section)
         self.write_column(building)
-        self.write_leaning_column_spring(building)
+        
+        if add_gravity_frame:
+            self.write_nodes_EGF(building)
+            self.write_links_to_EGF(building)
+            self.write_EGF(building, composite_section)
+            self.write_EGF_spring(building, composite_section)
+        else:
+            self.write_nodes_leaning_column(building)
+            self.write_links_to_EGF(building)
+            self.write_leaning_column(building)
+            self.write_leaning_column_spring(building)
+        
+        self.write_fixities(building, add_gravity_frame)        
         self.write_mass(building)
         self.write_all_recorder(building)
         if not for_period_only:
@@ -63,8 +82,8 @@ class ElasticAnalysis(object):
             self.write_node_displacement_recorder(building)
             self.write_beam_force_recorder(building)
             self.write_column_force_recorder(building)
-            self.write_gravity_dead_load(building)
-            self.write_gravity_live_load(building)
+            self.write_gravity_dead_load(building, add_gravity_frame)
+            self.write_gravity_live_load(building, add_gravity_frame)
             self.write_earthquake_load(building)
             self.write_gravity_earthquake_load(building)
         self.copy_baseline_files(building, for_drift_only, for_period_only)
@@ -98,7 +117,10 @@ class ElasticAnalysis(object):
                         tclfile.write("\t # Column #%i \n" % j)
                 tclfile.write("\n")
             tclfile.write("# puts \"Nodes at frame corner defined\" \n\n")
-
+    
+    def write_nodes_leaning_column(self, building):
+        # Create a .tcl file and write the node information
+        with open(os.path.join(building.directory['building elastic model'], 'DefineNodes2DModelEGF.tcl'), 'w') as tclfile:
             # Write the nodes for leaning column
             tclfile.write("# Define nodes for leaning column \n")
             for i in range(1, building.geometry['number of story']+2):
@@ -134,17 +156,121 @@ class ElasticAnalysis(object):
                     pass
             tclfile.write("\n")
             tclfile.write("# puts \"Extra nodes for leaning column springs defined\"\n")
+    
+    def write_nodes_EGF(self, building):
+        # Create a .tcl file and write the node information
+        with open(os.path.join(building.directory['building elastic model'], 'DefineNodes2DModelEGF.tcl'), 'w') as tclfile:
+            # Write the nodes for leaning column
+            tclfile.write("# Define nodes for EGF (left column)\n")
+            for i in range(1, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            
+            tclfile.write("# Define nodes for EGF (right column)\n")
+            for i in range(1, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i02" % (building.geometry['number of X bay']+3, i))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            tclfile.write("\n")
+            tclfile.write("# puts \"Nodes for EGF column defined\" \n\n")
 
-    def write_fixities(self, building):
+            # Write the extra nodes for beam springs
+            tclfile.write("# Define extra nodes for beam springs (left side)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 3))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            
+            tclfile.write("# Define extra nodes for beam springs (right side)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+3, i, 5))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                if i <= 2:
+                    tclfile.write("\t[expr %i*$FirstStory]; " % (i-1))  # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i)  # Comments to explain floor level
+                else:
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2)) # Y coordinate
+                    tclfile.write("\t# Level %i\n" % i) # Comments to explain floor level
+            tclfile.write("\n")
+            tclfile.write("# puts \"Extra nodes for EGF beam defined\" \n\n")
+
+            # Write the extra nodes for column springs
+            tclfile.write("# Define extra nodes needed to define leaning column springs \n")
+            tclfile.write("# Define nodes for EGF (left column)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # The node below floor level
+                tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 2))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 1))  # X coordinate
+                tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                tclfile.write("\t# Node below floor level %i\n" % i)
+
+                # If it's top story, node above roof is not needed
+                # because no leaning column above roof
+                if i < building.geometry['number of story']+1:
+                    # The node above floor level
+                    tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 4))  # Nodel label
+                    tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+1))  # X coordinate
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                    tclfile.write("\t# Node above floor level %i\n" % i)
+                else:
+                    pass
+            tclfile.write("\n")
+            
+            tclfile.write("# Define nodes for EGF (right column)\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # The node below floor level
+                tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+3, i, 2))  # Node label
+                tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay'] + 2))  # X coordinate
+                tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                tclfile.write("\t# Node below floor level %i\n" % i)
+
+                # If it's top story, node above roof is not needed
+                # because no leaning column above roof
+                if i < building.geometry['number of story']+1:
+                    # The node above floor level
+                    tclfile.write("node\t%i%i%i02" % (building.geometry['number of X bay']+3, i, 4))  # Nodel label
+                    tclfile.write("\t[expr %i*$BayWidth]" % (building.geometry['number of X bay']+2))  # X coordinate
+                    tclfile.write("\t[expr 1*$FirstStory+%i*$TypicalStory];" % (i-2))  # Y coordinate
+                    tclfile.write("\t# Node above floor level %i\n" % i)
+                else:
+                    pass
+            tclfile.write("\n")
+            
+            tclfile.write("# puts \"Extra nodes for EGF column springs defined\"\n")
+    
+    def write_fixities(self, building, add_gravity_frame):
         # Create a .tcl file to write boundary for the model
         with open(os.path.join(building.directory['building elastic model'], 'DefineFixities2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define the fixity at all column bases \n\n\n")
             tclfile.write("# Defining fixity at column base \n")
             for j in range(1, building.geometry['number of X bay']+2):
                 tclfile.write("fix\t%i%i%i\t1\t1\t1; \n" % (j, 1+10, 1))
-            # Leaning column base
-            tclfile.write("fix\t%i%i02\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
-            tclfile.write("# puts \"All column base fixities have been defined\"")
+            
+            if add_gravity_frame:
+                # EGF columns base
+                tclfile.write("fix\t%i%i02\t1\t1\t0; \n" % (building.geometry['number of X bay']+2, 1))
+                tclfile.write("fix\t%i%i02\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+3, 1))
+                tclfile.write("# puts \"All column base fixities have been defined\"")   
+            else:
+                # Leaning column base
+                tclfile.write("fix\t%i%i02\t1\t1\t0; \n\n" % (building.geometry['number of X bay']+2, 1))
+                tclfile.write("# puts \"All column base fixities have been defined\"")
 
     def write_floor_constraint(self, building):
         # Create a .tcl file to write floor constrain, i.e., equal DOF
@@ -163,13 +289,19 @@ class ElasticAnalysis(object):
                 tclfile.write("\t# Pier 1 to Leaning column\n\n")
             tclfile.write("# puts \"Floor constraint defined\"")
 
-    def write_beam(self, building):
+    def write_beam(self, building, composite_section):
         # Create a .tcl file to write beam elements
         with open(os.path.join(building.directory['building elastic model'], 'DefineBeams2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define beam elements \n\n\n")
+            
             tclfile.write("# Define beam section sizes \n")
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("set\tBeamLevel%i\t[SectionProperty %s]; \n" % (i, building.member_size['beam'][i-2]))
+            
+            if composite_section:
+                tclfile.write("\n\n# Stiffness amplification factor for composite beam\n")                
+                tclfile.write("set\tComp_I\t%0.2f; # stiffness factor for MR frame beams\n" % (building.Comp_I))
+                
             tclfile.write("\n\n# Define beams \n")
             for i in range(2, building.geometry['number of story']+2):
                 tclfile.write("# Level %i\n" % i)
@@ -181,9 +313,23 @@ class ElasticAnalysis(object):
                     tclfile.write("\t%i%i%i" % (j+1, i+10, 1))  # Ending node
                     tclfile.write("\t[expr 100*[lindex $BeamLevel%i 2]]" % i)  # Area of beam section (amplified by 10 for rigid diaphragm instead of using constraints)
                     tclfile.write("\t$Es")  # Young's modulus of steel material
-                    tclfile.write("\t[lindex $BeamLevel%i 6]" % i)  # Moment of inertia of beam section
+                    if composite_section:
+                        tclfile.write("\t[expr $Comp_I*[lindex $BeamLevel%i 6]]" % i)  # Moment of inertia of beam section amplified by composite action
+                    else:
+                        tclfile.write("\t[lindex $BeamLevel%i 6]" % i)  # Moment of inertia of beam section
                     tclfile.write("\t$LinearTransf; \n")  # Geometric transformation
 
+            tclfile.write("# puts \"Beams defined\"")
+
+    def write_links_to_EGF(self, building):
+        # Create a .tcl file to write beam elements
+        with open(os.path.join(building.directory['building elastic model'], 'DefineLinksEGF2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define beam elements for the leaning column \n\n\n")
+
+            tclfile.write("# Define beams leaning column \n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("# Level %i\n" % i)
+                
                 # Beam elements connection frame and leaning column
                 tclfile.write("element\ttruss")  # elastic beam-column command
                 tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+1, i,
@@ -191,8 +337,8 @@ class ElasticAnalysis(object):
                 tclfile.write("\t%i%i%i" % (building.geometry['number of X bay']+1, i+10, 1))  # Starting node in frame
                 tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Ending node in leaning column
                 tclfile.write("\t$AreaRigid\t$TrussMatID; \n")  # Large area and truss element material
-                tclfile.write("\n")
-            tclfile.write("# puts \"Beams defined\"")
+
+            tclfile.write("# puts \"Beams leaning column defined\"")
 
     def write_column(self, building):
         # Create a .tcl file to define all column elements
@@ -233,7 +379,17 @@ class ElasticAnalysis(object):
                         tclfile.write("\t$Es")
                         tclfile.write("\t[lindex $ExteriorColumnStory%i 6]" % i)  # Moment of inertia of column section
                     tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation
+                
+            tclfile.write("# puts \"Columns defined\"")
 
+    def write_leaning_column(self, building):
+        # Create a .tcl file to define all column elements
+        with open(os.path.join(building.directory['building elastic model'], 'DefineEGF2DModel.tcl'), 'w') as tclfile:
+            tclfile.write("# This file will be used to define leaning column \n\n\n")
+
+            tclfile.write("\n\n# Define leaning column\n")
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("# Story %i \n" % i)                
                 # Leaning column elements
                 tclfile.write("element\telasticBeamColumn")  # element command
                 if i == 1:
@@ -246,12 +402,13 @@ class ElasticAnalysis(object):
                                                         building.geometry['number of X bay']+2, i+1))
                     tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 4))
                     tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i+1, 2))
-                tclfile.write("\t$AreaRigid\t$Es\t$IRigid\t$PDeltaTransf; \n\n")
-            tclfile.write("# puts \"Columns defined\"")
-
+                tclfile.write("\t$AreaRigid\t$Es\t$IRigid\t$PDeltaTransf; \n")
+                
+            tclfile.write("# puts \"Leaning columns defined\"")                
+    
     def write_leaning_column_spring(self, building):
         # Create a .tcl file to write all rotational springs for leaning column
-        with open(os.path.join(building.directory['building elastic model'], 'DefineLeaningColumnSpring.tcl'), 'w') as tclfile:
+        with open(os.path.join(building.directory['building elastic model'], 'DefineEGFSpring.tcl'), 'w') as tclfile:
             tclfile.write("# This file will be used to define column hinges \n\n")
             for i in range(2, building.geometry['number of story']+2):
                 # Spring below the floor level i
@@ -259,7 +416,8 @@ class ElasticAnalysis(object):
                 tclfile.write("\t%i%i%i%i%i" % (building.geometry['number of X bay']+2, i,
                                                 building.geometry['number of X bay']+2, i, 2))  # Spring tag
                 tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Node at floor level
-                tclfile.write("\t%i%i%i02;" % (building.geometry['number of X bay']+2, i, 2))  # Node below floor level
+                tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 2))  # Node below floor level
+                tclfile.write("\t1e-9;")  # Rotational stiffness of the elastic spring
                 tclfile.write("\t# Spring below floor level %i \n" % i)
 
                 # Spring above floor level i
@@ -270,12 +428,166 @@ class ElasticAnalysis(object):
                                                     building.geometry['number of X bay'], i, 4))  # Spring tag
                     tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Node at floor level
                     # Node above floor level
-                    tclfile.write("\t%i%i%i02;" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 4))
+                    tclfile.write("\t1e-9;")  # Rotational stiffness of the elastic spring
                     tclfile.write("\t# Spring above floor level %i \n" % i)
                 else:
                     pass
             tclfile.write("\n")
             tclfile.write("# puts \"Leaning column springs defined\"")
+
+    def write_EGF(self, building, composite_section):
+        # Create a .tcl file to define all column elements
+        with open(os.path.join(building.directory['building elastic model'], 'DefineEGF2DModel.tcl'), 'w') as tclfile:            
+            tclfile.write("# This file will be used to define the EGF \n\n")
+            tclfile.write("\n\n# Define gravity columns\n")
+            
+            # Define column sizes
+            tclfile.write("# Define EGF column section sizes \n")
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("set\tEGFColumnStory%i\t[SectionProperty %s]; \n"
+                              % (i, building.member_size_EGF['column'][i-1]))
+            
+                # Calculate number of gravity columns that help one frame 
+                n_gravity_columns = building.member_size_EGF['bays'][i-1] * 2 / building.geometry['number of X LFRS']
+                tclfile.write("set\tn_gravity_columnsStory%i\t%i; \n" % (i, n_gravity_columns))
+            tclfile.write("\n") 
+            
+            for i in range(1, building.geometry['number of story']+1):
+                tclfile.write("# Story %i \n" % i)                
+                # Column elements (2: left column, 3: right column)
+                for j in [2, 3]:
+                    tclfile.write("element\telasticBeamColumn")  # element command
+                    if i == 1:
+                        tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+j, i,
+                                                          building.geometry['number of X bay']+j, i+1)) # element tag
+                        tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+j, i)) # bottom node
+                        tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+j, i+1, 2)) # top node
+                    else:
+                        tclfile.write("\t%i%i%i%i%i" % (3, building.geometry['number of X bay']+j, i,
+                                                            building.geometry['number of X bay']+j, i+1)) # element tag
+                        tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+j, i, 4)) # bottom node
+                        tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+j, i+1, 2)) # top node
+                    tclfile.write("\t[expr 100*$n_gravity_columnsStory%i*0.5*[lindex $EGFColumnStory%i 2]]" % (i, i))  # Area of beam section (amplified by 100 for rigid diaphragm instead of using constraints)
+                    tclfile.write("\t$Es")  # Young's modulus of steel material
+                    tclfile.write("\t[expr $n_gravity_columnsStory%i*0.5*[lindex $EGFColumnStory%i 6]]" % (i, i))  # Moment of inertia of beam section
+                    tclfile.write("\t$PDeltaTransf; \n")  # Geometric transformation 
+                                                                          
+            tclfile.write("# puts \"EGF columns defined\"")
+            
+            tclfile.write("\n\n# Define gravity girders \n")
+            
+            if composite_section:
+                tclfile.write("\n\n# Stiffness amplification factor for composite beam\n")                
+                tclfile.write("set\tComp_I_GC\t%0.2f; # stiffness factor for MR frame beams\n" % (building.Comp_I_GC))            
+            
+            tclfile.write("# Define beam section sizes \n")
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("set\tEGFBeamLevel%i\t[SectionProperty %s]; \n" % (i, building.member_size_EGF['girder'][i-2]))
+            
+                # Calculate number of gravity columns that help one frame
+                n_gravity_girders = building.member_size_EGF['bays'][i-2] / building.geometry['number of X LFRS']
+                tclfile.write("set\tn_gravity_girdersLevel%i\t%i; \n" % (i, n_gravity_girders))                      
+            tclfile.write("\n") 
+            for i in range(2, building.geometry['number of story']+2):
+                tclfile.write("# Level %i\n" % i)
+                
+                # Beam elements connection frame and leaning column
+                tclfile.write("element\telasticBeamColumn")  # elastic beam-column command
+                tclfile.write("\t%i%i%i%i%i" % (2, building.geometry['number of X bay']+2, i,
+                                                  building.geometry['number of X bay']+3, i)) # element tag
+                tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 3))  # Ending node in left column
+                tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+3, i, 5))  # Ending node in right column
+                tclfile.write("\t[expr 100*$n_gravity_girdersLevel%i*[lindex $EGFBeamLevel%i 2]]" % (i, i))  # Area of beam section (amplified by 10 for rigid diaphragm instead of using constraints)
+                tclfile.write("\t$Es")  # Young's modulus of steel material
+                if composite_section:
+                    tclfile.write("\t[expr $n_gravity_girdersLevel%i*$Comp_I_GC*[lindex $EGFBeamLevel%i 6]]" % (i, i))  # Moment of inertia of beam section   
+                else:
+                    tclfile.write("\t[expr $n_gravity_girdersLevel%i*[lindex $EGFBeamLevel%i 6]]" % (i, i))  # Moment of inertia of beam section
+                tclfile.write("\t$LinearTransf; \n")  # Geometric transformation 
+            tclfile.write("# puts \"Beams leaning column defined\"")
+            
+    def write_EGF_spring(self, building, composite_section): 
+        # Create a .tcl file to write all rotational springs for leaning column
+        with open(os.path.join(building.directory['building elastic model'], 'DefineEGFSpring.tcl'), 'w') as tclfile:
+            
+            tclfile.write("# This file will be used to define column hinges \n\n")
+            for i in range(2, building.geometry['number of story']+2):
+                # Column elements (2: left column, 3: right column)
+                
+                # Calculate elastic stiffness
+                section_size = building.member_size_EGF['column'][i-2]
+                section = search_section_property(section_size, building.SECTION_DATABASE_AISC)
+                n_gravity_columns = building.member_size_EGF['bays'][i-2] * 2 / building.geometry['number of X LFRS'] #Number of gravity columns that help one frame
+                
+                Ig = section['Ix']
+                if i == 2:
+                    L  = building.geometry['first story height']*12 # in
+                else:
+                    L  = building.geometry['typical story height']*12 # in
+                K  = (6*building.steel.E*Ig/L)*n_gravity_columns/2 # divided by two because we are modeling two columns
+                
+                for j in [2, 3]:                                
+                    # Spring below the floor level i
+                    tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
+                    tclfile.write("\t%i%i%i%i%i02" % (building.geometry['number of X bay']+j, i,
+                                                    building.geometry['number of X bay']+j, i, 2))  # Spring tag
+                    tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+j, i))  # Node at floor level
+                    tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+j, i, 2))  # Node below floor level
+                    tclfile.write("\t[expr $n*%.2f];" % K)  # Rotational stiffness of the elastic spring
+                    tclfile.write("\t# Spring below floor level %i \n" % i)
+    
+                    # Spring above floor level i
+                    # If it's roof, no rotational spring exists above roof
+                    if i < building.geometry['number of story']+1:
+                        tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
+                        tclfile.write("\t%i%i%i%i%i02" % (building.geometry['number of X bay']+j, i,
+                                                        building.geometry['number of X bay'], i, 4))  # Spring tag
+                        tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+j, i))  # Node at floor level
+                        # Node above floor level
+                        tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+j, i, 4))
+                        tclfile.write("\t[expr $n*%.2f];" % K)  # Rotational stiffness of the elastic spring
+                        tclfile.write("\t# Spring above floor level %i \n\n" % i)
+                else:
+                    pass
+            tclfile.write("\n")            
+            tclfile.write("# puts \"Gravity column springs defined\"")
+            
+            tclfile.write("\n\n# This file will be used to define beam hinges \n\n")
+            for i in range(2, building.geometry['number of story']+2):
+                
+                # Calculate elastic stiffness (Elkady and Lignos, 2015)
+                section_size = building.member_size_EGF['girder'][i-2]
+                section = search_section_property(section_size, building.SECTION_DATABASE_AISC)
+                
+                Mp = building.steel.Ry * building.steel.Fy * section['Zx']
+                if composite_section:
+                    K = 0.35*Mp / 0.0042
+                else:
+                    K = 0.121*Mp / 0.0045
+                n_gravity_girders = building.member_size_EGF['bays'][i-2] / building.geometry['number of X LFRS']
+                
+                # Spring left the floor level i
+                tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
+                tclfile.write("\t%i%i%i%i%i02" % (building.geometry['number of X bay']+2, i,
+                                                building.geometry['number of X bay']+2, i, 3))  # Spring tag
+                tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+2, i))  # Node at floor level
+                tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+2, i, 3))  # Node at left of the beam                
+                tclfile.write("\t%.2f;" % (K*n_gravity_girders))  # Rotational stiffness of the elastic spring
+                tclfile.write("\t# Spring left side of the beam at floor level %i \n" % i)
+
+                # Spring right floor level i
+                tclfile.write("rotLeaningCol")  # rotLeaningCol is user-defined process in OpenSees
+                tclfile.write("\t%i%i%i%i%i02" % (building.geometry['number of X bay']+3, i,
+                                                building.geometry['number of X bay']+3, i, 5))  # Spring tag
+                tclfile.write("\t%i%i02" % (building.geometry['number of X bay']+3, i))  # Node at floor level
+                tclfile.write("\t%i%i%i02" % (building.geometry['number of X bay']+3, i, 5)) # Node right of the beam
+                tclfile.write("\t%.2f;" % (K*n_gravity_girders))  # Rotational stiffness of the elastic spring
+                tclfile.write("\t# Spring right side of the beam at floor level %i \n\n" % i)
+                
+            tclfile.write("\n")            
+            tclfile.write("# puts \"Gravity beam springs defined\"")
+            
 
     def write_mass(self, building):
         # Create a .tcl file to write nodal mass
@@ -399,7 +711,7 @@ class ElasticAnalysis(object):
                     tclfile.write("\t%i%i%i%i%i" % (3, j, i, j, i+1))
                 tclfile.write("\tforce;\n")
 
-    def write_gravity_dead_load(self, building):
+    def write_gravity_dead_load(self, building, add_gravity_frame):
         # Create a .tcl file that writes the gravity dead load on the model
         with open(os.path.join(building.directory['building elastic model'], 'DefineGravityDeadLoads2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define gravity dead loads\n\n\n")
@@ -461,16 +773,27 @@ class ElasticAnalysis(object):
                     tclfile.write("\t-type\t-beamUniform\t[expr -1*$BeamDeadLoadFloor%i]; \n" % i)
                 tclfile.write("\n")
             tclfile.write("\n\n")
-            # Dead loads on leaning column
-            tclfile.write("# Define point loads on leaning column\n")
-            for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i02\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i]\t0; \n"
-                              %(building.geometry['number of X bay']+2, i, i))
-            tclfile.write("\n}\n")
+            
+            if add_gravity_frame:
+                # Dead loads on EGF column
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i02\t0\t[expr -0.5*$LeaningColumnDeadLoadFloor%i]\t0; \n"
+                                  %(building.geometry['number of X bay']+2, i, i))
+                    tclfile.write("load\t%i%i02\t0\t[expr -0.5*$LeaningColumnDeadLoadFloor%i]\t0; \n"
+                                  %(building.geometry['number of X bay']+3, i, i))
+                tclfile.write("\n}\n")    
+            else:
+                # Dead loads on leaning column
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i02\t0\t[expr -1*$LeaningColumnDeadLoadFloor%i]\t0; \n"
+                                  %(building.geometry['number of X bay']+2, i, i))
+                tclfile.write("\n}\n")
 
             tclfile.write("# puts \"Dead load defined\"")
 
-    def write_gravity_live_load(self, building):
+    def write_gravity_live_load(self, building, add_gravity_frame):
         # Create a .tcl file to write live load
         with open(os.path.join(building.directory['building elastic model'], 'DefineGravityLiveLoads2DModel.tcl'), 'w') as tclfile:
             tclfile.write("# Define gravity live loads\n\n\n")
@@ -532,12 +855,23 @@ class ElasticAnalysis(object):
                     tclfile.write("\t-type\t-beamUniform\t[expr -1*$BeamLiveLoadFloor%i]; \n" % i)
                 tclfile.write("\n")
             tclfile.write("\n\n")
-            # Live loads on leaning column
-            tclfile.write("# Define point loads on leaning column\n")
-            for i in range(2, building.geometry['number of story']+2):
-                tclfile.write("load\t%i%i02\t0\t[expr -1*$LeaningColumnLiveLoadFloor%i]\t0; \n"
-                              % (building.geometry['number of X bay']+2, i, i))
-            tclfile.write("\n}\n")
+            
+            if add_gravity_frame:
+                # Live loads on leaning column
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i02\t0\t[expr -0.5*$LeaningColumnLiveLoadFloor%i]\t0; \n"
+                                  % (building.geometry['number of X bay']+2, i, i))
+                    tclfile.write("load\t%i%i02\t0\t[expr -0.5*$LeaningColumnLiveLoadFloor%i]\t0; \n"
+                                  % (building.geometry['number of X bay']+3, i, i))
+                tclfile.write("\n}\n")
+            else:
+                # Live loads on leaning column
+                tclfile.write("# Define point loads on leaning column\n")
+                for i in range(2, building.geometry['number of story']+2):
+                    tclfile.write("load\t%i%i02\t0\t[expr -1*$LeaningColumnLiveLoadFloor%i]\t0; \n"
+                                  % (building.geometry['number of X bay']+2, i, i))
+                tclfile.write("\n}\n")
 
             tclfile.write("# puts \"Live load defined\"")
 
@@ -733,6 +1067,6 @@ class ElasticAnalysis(object):
         os.chdir(os.path.join(building.directory['building elastic model']))        
         #os.system("C:\SimCenter\OpenSees\OpenSees Model.tcl")
         os.system("OpenSees Model.tcl")
-        # time.sleep(3) # add delay to allow creation of files before trying to fetch them
+        #time.sleep(3) # add delay to allow creation of files before trying to fetch them
         os.chdir(building.base_directory)
                   

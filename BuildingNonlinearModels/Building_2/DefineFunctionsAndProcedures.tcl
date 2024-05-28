@@ -277,6 +277,179 @@ proc rotPanelZone2D {eleID nodeR nodeC E Fy dc bf_c tf_c tp db Ry as} {
 }
 
 
+
+##################################################################################################################
+# Spring_PZ.tcl
+#
+# SubRoutine to construct a rotational spring with a trilinear hysteretic response representative of steel 
+# panel zone response with/without the consideration of composite action                                                           
+#      
+# References: 
+#--------------	
+# Elkady, A. and D. G. Lignos (2014). "Modeling of the Composite Action in Fully Restrained Beam-to-Column
+# 	Connections: ‎Implications in the Seismic Design and Collapse Capacity of Steel Special Moment Frames." 
+# 	Earthquake Eng. & Structural Dynamics 43(13). DOI: 10.1002/eqe.2430.
+#
+# Skiadopoulos, A., Elkady, A. and D. G. Lignos (2020). "Proposed Panel Zone Model for Seismic Design of 
+#   Steel Moment-Resisting Frames." ASCE Journal of Structural Engineering. DOI: 10.1061/(ASCE)ST.1943-541X.0002935. 
+#
+##################################################################################################################
+#
+# Input Arguments:                                                                               
+#------------------
+# SpringID		Spring ID
+# NodeI			Node i ID
+# NodeJ			Node j ID
+# E				Young's Modulus [ksi]
+# mu			Poisson's Ratio
+# fy			Yield Stress (Expected, measured or nominal) [ksi]
+# tw_Col		Column Web Thickness [in]
+# tdp			Doubler Plate(s) Total Thickness [in]
+# d_Col			Column Depth [in]
+# d_Beam		Beam Depth [in]
+# tf_Col		Column Flange Thickness [in]
+# bf_Col		Column Flange Width [in]
+# Ix_Col		Column second-moment-of-interia about the strong axis [in^4]
+# n				Axial load ratio (P/Py)
+# trib			Steel deck rib depth [in]
+# ts			Concrete slab depth above the rib [in]
+# Response_ID	ID for Panel Zone Response: 0 --> Interior Steel Panel Zone with Composite Action
+#								   			1 --> Exterior Steel Panel Zone with Composite Action
+#								   			2 --> Bare Steel Interior/Exterior Steel Panel Zone
+#                                                                                                      
+# Written by: Dr. Ahmed Elkady, University of Southampton, UK
+# 
+##################################################################################################################
+
+
+proc Spring_PZ {SpringID NodeI NodeJ E mu fy  tw_Col tdp d_Col d_Beam tf_Col bf_Col Ix_Col n trib ts Response_ID} {
+	
+	# puts "XXXX $SpringID XXXX" 
+	# puts "$d_Col"
+	# puts "$bf_Col"	
+	# puts "$tf_Col"
+	# puts "$tw_Col"
+	# puts "$d_Beam"
+	
+	set tpz [expr $tw_Col + $tdp]; # total PZ thickness
+
+	set G [expr $E/(2.0 * (1.0 + $mu))];     # Shear Modulus
+
+	# Beam's effective depth
+	if {$Response_ID==2} {
+	set d_BeamP $d_Beam;
+	} else {
+	set d_BeamP [expr $d_Beam + $trib + 0.5 * $ts]; # Effective Depth in Positive Moment
+	}
+	set d_BeamN $d_Beam; 						   # Effective Depth in Negative Moment
+
+	# Stiffness Calculation
+	set Ks [expr $tpz * ($d_Col - $tf_Col) * $G];   											    # PZ Stiffness: Shear Contribution
+	set Kb [expr 12 * $E * ($Ix_Col + $tdp * pow(($d_Col - 2*$tf_Col),3)/12.) /pow($d_Beam,3) * $d_Beam];  # PZ Stiffness: Bending Contribution
+	set Ke [expr ($Ks * $Kb) / ($Ks + $Kb)];   												    # PZ Stiffness: Total
+
+	set Ksf [expr 2 * ($bf_Col * $tf_Col) * $G];   								   # Flange Stiffness: Shear Contribution
+	set Kbf [expr 2 * 12 * $E * $bf_Col * pow($tf_Col,3)/12. /pow($d_Beam,3) * $d_Beam];   # Flange Stiffness: Bending Contribution
+	set Kef [expr ($Ksf * $Kbf) / ($Ksf + $Kbf)];   								   # Flange Stiffness: Total
+
+	set ay [expr (0.58 * $Kef / $Ke  + 0.88) / (1 - $Kef / $Ke)];
+
+	set aw_eff_4gamma 1.10;
+	set aw_eff_6gamma 1.15;
+
+	set af_eff_4gamma [expr 0.93 * $Kef / $Ke  + 0.015];
+	set af_eff_6gamma [expr 1.05 * $Kef / $Ke  + 0.020];
+
+	set r [expr sqrt(1- pow($n,2))]; # Reduction factor accounting for axial load
+
+	set Vy 		     [expr $r * 0.577 * $fy *  $ay			 * ($d_Col - $tf_Col) * $tpz];  										    # Yield Shear Force
+	set Vp_4gamma 	[expr $r * 0.577 * $fy * ($aw_eff_4gamma * ($d_Col - $tf_Col) * $tpz + $af_eff_4gamma * ($bf_Col - $tw_Col) * 2*$tf_Col)];  # Plastic Shear Force @ 4 gammaY
+	set Vp_6gamma 	[expr $r * 0.577 * $fy * ($aw_eff_6gamma * ($d_Col - $tf_Col) * $tpz + $af_eff_6gamma * ($bf_Col - $tw_Col) * 2*$tf_Col)];  # Plastic Shear Force @ 6 gammaY
+
+	set gamma_y  [expr $Vy/$Ke]; 
+	set gamma4_y [expr 4.0 * $gamma_y];  
+	set gamma6_y [expr 6.0 * $gamma_y];
+
+	set My_P        [expr $Vy 	    * $d_BeamP];
+	set Mp_4gamma_P [expr $Vp_4gamma * $d_BeamP];
+	set Mp_6gamma_P [expr $Vp_6gamma * $d_BeamP];
+
+	set My_N 	  [expr $Vy 	    * $d_BeamN];
+	set Mp_4gamma_N [expr $Vp_4gamma * $d_BeamN];
+	set Mp_6gamma_N [expr $Vp_6gamma * $d_BeamN];
+
+	set Slope_4to6gamma_y_P [expr ($Mp_6gamma_P - $Mp_4gamma_P) / (2 * $gamma_y) ];
+	set Slope_4to6gamma_y_N [expr ($Mp_6gamma_N - $Mp_4gamma_N) / (2 * $gamma_y) ];
+
+	# Defining the 3 Points used to construct the trilinear backbone curve
+	set gamma1 $gamma_y; 
+	set gamma2 $gamma4_y;  
+	set gamma3 [expr 100 * $gamma_y];
+
+	set M1_P [expr $My_P];
+	set M2_P [expr $Mp_4gamma_P];
+	set M3_P [expr $Mp_4gamma_P + $Slope_4to6gamma_y_P * (100 * $gamma_y - $gamma4_y)];
+
+	set M1_N [expr $My_N];
+	set M2_N [expr $Mp_4gamma_N];
+	set M3_N [expr $Mp_4gamma_N + $Slope_4to6gamma_y_N * (100 * $gamma_y - $gamma4_y)];
+
+	set gammaU_P   0.3;
+	set gammaU_N  -0.3;
+
+	set Dummy_ID [expr   12 * $SpringID]; 
+
+	# Hysteretic Material without pinching and damage
+	# uniaxialMaterial Hysteretic $matTag $s1p $e1p $s2p $e2p <$s3p $e3p> $s1n $e1n $s2n $e2n <$s3n $e3n> $pinchX $pinchY $damage1 $damage2
+
+	# Composite Interior Steel Panel Zone
+		
+	# puts "$M1_P"
+	# puts "gammaY_PX = $gamma1"
+	# puts "$M2_P"	
+	# puts "$gamma2"
+	# puts "$M3_P"
+	# puts "$gamma3"
+	
+	if { $Response_ID == 0.0 } {
+	 uniaxialMaterial Hysteretic $Dummy_ID  $M1_P $gamma1  $M2_P $gamma2 $M3_P $gamma3 [expr -$M1_P] [expr -$gamma1] [expr -$M2_P] [expr -$gamma2] [expr -$M3_P] [expr -$gamma3] 0.25 0.75 0. 0. 0.;
+	 uniaxialMaterial MinMax 	 $SpringID $Dummy_ID -min $gammaU_N -max $gammaU_P;
+	}
+
+	# Composite Exterior Steel Panel Zone
+	if { $Response_ID == 1.0 } {
+	 uniaxialMaterial Hysteretic $Dummy_ID  $M1_P $gamma1  $M2_P $gamma2 $M3_P $gamma3 [expr -$M1_N] [expr -$gamma1] [expr -$M2_N] [expr -$gamma2] [expr -$M3_N] [expr -$gamma3] 0.25 0.75 0. 0. 0.;
+	 uniaxialMaterial MinMax 	 $SpringID $Dummy_ID -min $gammaU_N -max $gammaU_P;
+	}
+
+	# Bare Steel Interior/Exterior Steel Panel Zone
+	if { $Response_ID == 2.0 } {
+	 uniaxialMaterial Hysteretic $Dummy_ID  $M1_N $gamma1  $M2_N $gamma2 $M3_N $gamma3 [expr -$M1_N] [expr -$gamma1] [expr -$M2_N] [expr -$gamma2] [expr -$M3_N] [expr -$gamma3] 0.25 0.75 0. 0. 0.;
+	 uniaxialMaterial MinMax 	 $SpringID $Dummy_ID -min $gammaU_N -max $gammaU_P;
+	} 
+
+	element zeroLength $SpringID $NodeI $NodeJ -mat $SpringID -dir 6;
+	
+    equalDOF    $NodeI     $NodeJ     1     2
+    # Constrain the translational DOF with a multi-point constraint
+    # Left Top Corner of PZ
+    set nodeR_1 [expr $NodeI - 2];
+    set nodeR_2 [expr $nodeR_1 + 1];
+    # Right Bottom Corner of PZ
+    set nodeR_6 [expr $NodeI + 2];
+    set nodeR_7 [expr $nodeR_6 + 1];
+    # Left Bottom Corner of PZ
+    set nodeL_8 [expr $NodeI + 4];
+    set nodeL_9 [expr $nodeL_8 + 1];
+    #          retained constrained DOF_1 DOF_2 
+    equalDOF    $nodeR_1     $nodeR_2    1     2
+    equalDOF    $nodeR_6     $nodeR_7    1     2
+    equalDOF    $nodeL_8     $nodeL_9    1     2
+
+}
+
+
+
 ##############################################################################################################################
 #            Define Modified IMK Deterioration Material Model for Beam and Column Plastic Hinges                             #
 ##############################################################################################################################
@@ -324,6 +497,129 @@ uniaxialMaterial Bilin $matTag $Ks $asPosScaled $asNegScaled $My [expr -1.0*$My]
 }
 
 
+########################################################################################################
+# matHysteretic.tcl                                                                         
+#
+# SubRoutine to construct an hystereic spring as uniaxial material
+#                                                      
+########################################################################################################
+#
+# Input Arguments:
+#------------------
+# matTag				Spring ID
+# EIeff					Flexural spring stiffness [kip-in^2]
+# eleLength				Length of the element [in]
+# n						Flexural coefficient
+# Mp					flexural plastic moment of the bare section [kip-in]
+# McMp					Ratio of maximum (or capping) moment to flexural strength
+# theta_p				Plastic rotation to the maximum (or capping) point
+# theta_pc				Plastic rotation from capping point to zero strength with a gradual slope
+# MrMp					Ratio of residual moment to flexural strength
+# Composite     		consider or not composite slab
+# compBackboneFactors 	list with the factors that modify the backbone from bare to composite
+#						{MpP/Mp MpN/Mp Mc/MpP Mc/MpN Mr/MpP Mr/MpN D_P D_N theta_p_P_comp 
+#						theta_p_N_comp theta_pc_P_comp theta_pc_P_comp}
+# pinching              boolean if pinching
+#
+# Written by: Francisco Galvis, Stanford University
+# Based on OpenSees examples available online
+#
+proc matHysteretic { matTag EIeff eleLength n Mp McMp theta_p theta_pc MrMp Composite compBackboneFactors Pinching} {
+
+	if {$Composite} {
+		# Modify backbone for composite action
+		set MpPMp [lindex $compBackboneFactors 0]
+		set MpNMp [lindex $compBackboneFactors 1]
+		set McMpP [lindex $compBackboneFactors 2]
+		set McMpN [lindex $compBackboneFactors 3]
+		set MrMpP [lindex $compBackboneFactors 4]
+		set MrMpN [lindex $compBackboneFactors 5]
+		set D_P [lindex $compBackboneFactors 6]
+		set D_N [lindex $compBackboneFactors 7]
+		set theta_p_P_comp [lindex $compBackboneFactors 8]
+		set theta_p_N_comp [lindex $compBackboneFactors 9]
+		set theta_pc_P_comp [lindex $compBackboneFactors 10]
+		set theta_pc_N_comp [lindex $compBackboneFactors 11]
+		
+		set MpP [expr $MpPMp*$Mp]
+		set MpN [expr $MpNMp*$Mp]
+	} else {		
+		# Keep bare section backbone
+		set McMpP $McMp
+		set McMpN $McMp
+		set MrMpP $MrMp
+		set MrMpN $MrMp
+		set D_P 1.0
+		set D_N 1.0
+		set theta_p_P_comp 1.0
+		set theta_p_N_comp 1.0
+		set theta_pc_P_comp 1.0
+		set theta_pc_N_comp 1.0
+		
+		set MpP $Mp
+		set MpN $Mp
+	}
+		
+	set K [expr $n * 6 * $EIeff / $eleLength]	
+	
+	# Corrected rotations to account for elastic deformations
+	set theta_y_p  [expr $MpP/$K];
+	set theta_y_n  [expr $MpN/$K];
+	set theta_p_p  [expr $theta_p  - ($McMpP-1.0)*$Mp/(6 * $EIeff / $eleLength)];
+	set theta_p_n  [expr $theta_p  - ($McMpN-1.0)*$Mp/(6 * $EIeff/ $eleLength)];
+	set theta_pc_p [expr $theta_pc + $theta_y_p + ($McMpP-1.0)*$Mp/(6 * $EIeff / $eleLength)];
+	set theta_pc_n [expr $theta_pc + $theta_y_n + ($McMpN-1.0)*$Mp/(6 * $EIeff / $eleLength)];
+	
+	# For sections with theta_p too low, assume a theta_p = theta_y after adjustment
+	if {$theta_p_p < 0} {
+		set theta_p_p $theta_y_p
+	}
+	if {$theta_p_n < 0} {
+		set theta_p_n $theta_y_n
+	}
+	
+	set theta_p_P   [expr $theta_p_P_comp*$theta_p_p];
+	set theta_p_N   [expr $theta_p_N_comp*$theta_p_n];
+	set theta_pc_P  [expr $theta_pc_P_comp*$theta_pc_p];
+	set theta_pc_N  [expr $theta_pc_N_comp*$theta_pc_n];
+	
+	set theta_res_P [expr $MpP*($McMpP - $MrMpP)/($MpP*$McMpP/$theta_pc_P)]; # Increased to help convergence
+	set theta_res_N [expr $MpN*($McMpN - $MrMpN)/($MpN*$McMpN/$theta_pc_N)]; # Increased to help convergence
+	
+	# puts "XXXX $matTag XXXX"
+	# puts "$compBackboneFactors"
+	# puts "$theta_y_p"
+	# puts "$theta_p_P"
+	# puts "$theta_res_P"
+	# puts "$theta_pc_P"
+	
+	# puts "$theta_y_n"	
+	# puts "$theta_p_N"
+	# puts "$theta_res_N"
+	# puts "$theta_pc_N"
+			
+	# puts "$MpP"
+	# puts "$McMpP"
+	# puts "$MrMpP"
+
+	# puts "$MpN"
+	# puts "$McMpN"
+	# puts "$MrMpN"	
+	
+	# Create the material model
+	if {$Pinching} {
+		uniaxialMaterial Hysteretic $matTag $MpP $theta_y_p [expr $McMpP*$MpP] [expr $theta_p_P + $theta_y_p] \
+		0 [expr $theta_res_P + $theta_p_P + $theta_y_p] [expr -$MpN] [expr -$theta_y_n] [expr -$McMpN*$MpN] [expr -($theta_p_N + $theta_y_n)] \
+		0 [expr -($theta_res_N + $theta_p_N + $theta_y_n)] 1.00 1.00 0.00 0.00	
+	} else {
+		uniaxialMaterial Hysteretic $matTag $MpP $theta_y_p [expr $McMpP*$MpP] [expr $theta_p_P + $theta_y_p] \
+		[expr $MrMpP*$MpP] [expr $theta_res_P + $theta_p_P + $theta_y_p] [expr -$MpN] [expr -$theta_y_n] [expr -$McMpN*$MpN] [expr -($theta_p_N + $theta_y_n)] \
+		[expr -$MrMpN*$MpN] [expr -($theta_res_N + $theta_p_N + $theta_y_n)] 1.00 1.00 0.00 0.00
+	}	
+}
+
+
+
 ##############################################################################################################################
 #                         Define Rotational Spring with Modified IMK Material Models for Plastic Hinges                      #
 ##############################################################################################################################
@@ -363,7 +659,7 @@ element zeroLength $eleID $nodeR $nodeC -mat $stiffMatID $stiffMatID $matID -dir
 #                               Define Rotational Spring for Leaning Column Hinges                                           #
 ##############################################################################################################################
 
-proc rotLeaningCol {eleID nodeR nodeC stiffMatID} {
+proc rotLeaningCol {eleID nodeR nodeC stiffMatID K} {
 # Create a zero-stiffness elastic rotational spring for the leaning column
 # while constraining the translational DOFs
 # Argument explanation:
@@ -372,7 +668,7 @@ proc rotLeaningCol {eleID nodeR nodeC stiffMatID} {
 # nodeC: ID of node which will be constrained by multi-point constraint
 
 # Spring stiffness: very small number (not using zero) to avoid numerical convergence issue
-set K 1e-9;
+# set K 1e-9;
 
 # Create the material and zero length element (spring)
 uniaxialMaterial Elastic $eleID $K;
@@ -382,5 +678,139 @@ element zeroLength $eleID $nodeR $nodeC -mat $stiffMatID $stiffMatID $eleID -dir
 #           retained    constrained DOF1    DOF2
 # equalDOF    $nodeR      $nodeC      1       2
 }
+
+
+##################################################################################################################
+# Spring_Pinching.tcl 
+#                                    
+# SubRoutine to construct a rotational spring with deteriorating pinched response representing the moment-rotation 
+# behaviour of beams that are part of conventional shear-tab connections.
+#  
+# The subroutine also considers modeling uncertainty based on the logarithmic standard deviations specified by the user.
+#
+# References: 
+#--------------	
+# Elkady, A. and D. G. Lignos (2015). "Effect of Gravity Framing on the Overstrength and Collapse Capacity of Steel
+# 	 Frame Buildings with Perimeter Special Moment Frames." Earthquake Eng. & Structural Dynamics 44(8).
+#
+##################################################################################################################
+#
+# Input Arguments:
+#------------------
+# SpringID		Spring ID
+# node_i 		Initial node
+# node_j 		End node
+# Mp			Effective plastic strength of the gravity beam
+# gap			Gap distance between beam end and column flange
+# ResponseID	0 --> Bare Shear Connection
+#				1 --> Composite Shear Connection
+#				2 --> Composite Shear Connection with Stiffeneing due to Binding
+#
+# Written by: Dr. Ahmed Elkady, University of Southampton, UK
+# 
+##################################################################################################################
+
+
+proc Spring_Pinching {SpringID node_i node_j M_p gap ResponseID} {
+
+	# Compute backbone parameters
+	if {$ResponseID == 0} {
+		set M_max_pos [expr  0.121* $M_p];
+		set M_max_neg [expr  0.121* $M_p];
+		set M1_P [expr 0.521 * $M_max_pos]; set M1_N [expr -0.521 * $M_max_neg];
+		set M2_P [expr 0.967 * $M_max_pos]; set M2_N [expr -0.967 * $M_max_neg];
+		set M3_P [expr 1.000 * $M_max_pos]; set M3_N [expr -1.000 * $M_max_neg];
+		set M4_P [expr 0.901 * $M_max_pos]; set M4_N [expr -0.901 * $M_max_neg];
+		set Th_1_P 0.0045; set Th_1_N -0.0045;
+		set Th_2_P 0.0465; set Th_2_N -0.0465;
+		set Th_3_P 0.0750; set Th_3_N -0.0750;
+		set Th_4_P 0.1000; set Th_4_N -0.1000;
+		set rDispP  0.57; set rDispN  0.57;
+		set rForceP 0.40; set rForceN 0.40;
+		set uForceP 0.05; set uForceN 0.05;
+		set gK1 0.0; set gD1 0.0; set gF1 0.0;
+		set gK2 0.0; set gD2 0.0; set gF2 0.0;
+		set gK3 0.0; set gD3 0.0; set gF3 0.0;
+		set gK4 0.0; set gD4 0.0; set gF4 0.0;
+		set gKLim 0.2; set gDLim 0.1; set gFLim 0.0;
+		set gE 10;
+		set dmgType "energy";
+		set Th_U_P  [expr   $gap  + 0.000];
+		set Th_U_N  [expr   -$gap - 0.000];
+	}
+
+	if {$ResponseID == 1} {
+		set M_max_pos [expr 0.35* $M_p];
+		set M_max_neg [expr 0.64*0.35* $M_p];
+		set M1_P [expr 0.250 * $M_max_pos]; set M1_N [expr -0.250 * $M_max_pos];
+		set M2_P [expr 1.000 * $M_max_pos]; set M2_N [expr -1.000 * $M_max_neg];
+		set M3_P [expr 1.001 * $M_max_pos]; set M3_N [expr -1.001 * $M_max_neg];
+		set M4_P [expr 0.530 * $M_max_pos]; set M4_N [expr -0.540 * $M_max_neg];
+		set Th_1_P 0.0042; set Th_1_N -0.0042;
+		set Th_2_P 0.0200; set Th_2_N -0.0110;
+		set Th_3_P 0.0390; set Th_3_N -0.0300;
+		set Th_4_P 0.0400; set Th_4_N -0.0550;
+		set rDispP  0.40; set rDispN  0.50;
+		set rForceP 0.13; set rForceN 0.53;
+		set uForceP 0.01; set uForceN 0.05;
+		set gK1 0.0; set gD1 0.0; set gF1 0.0;
+		set gK2 0.0; set gD2 0.0; set gF2 0.0;
+		set gK3 0.0; set gD3 0.0; set gF3 0.0;
+		set gK4 0.0; set gD4 0.0; set gF4 0.0;
+		set gKLim 0.30; set gDLim 0.05; set gFLim 0.05;
+		set gE 10;
+		set dmgType "energy";
+		set Th_U_P  [expr   $gap + 0.000];
+		set Th_U_N  [expr  -$gap - 0.000];
+	}
+
+	if {$ResponseID == 2} {
+		set M_max_pos [expr 0.35* $M_p];
+		set M_max_neg [expr 0.49*0.35* $M_p];
+		set M1_P [expr 0.250 * $M_max_pos]; set M1_N [expr -1.000 * $M_max_neg];
+		set M2_P [expr 1.000 * $M_max_pos]; set M2_N [expr -1.001 * $M_max_neg];
+		set M3_P [expr 1.001 * $M_max_pos]; set M3_N [expr -2.353 * $M_max_neg]; 
+		set M4_P [expr 0.530 * $M_max_pos]; set M4_N [expr -2.350 * $M_max_neg]; 
+		set Th_1_P 0.0042; set Th_1_N -0.0080;
+		set Th_2_P 0.0200; set Th_2_N [expr -1.0 * $gap];
+		set Th_3_P 0.0390; set Th_3_N [expr -1.0 * $gap - 0.015];
+		set Th_4_P 0.0400; set Th_4_N [expr -1.0 * $gap - 0.040];
+		set rDispP  0.40; set rDispN  0.50;
+		set rForceP 0.13; set rForceN 0.53;
+		set uForceP 0.01; set uForceN 0.05;
+		set gK1 0.0; set gD1 0.0; set gF1 0.0;
+		set gK2 0.0; set gD2 0.0; set gF2 0.0;
+		set gK3 0.0; set gD3 0.0; set gF3 0.0;
+		set gK4 0.0; set gD4 0.0; set gF4 0.0;
+		set gKLim 0.30; set gDLim 0.05; set gFLim 0.05;
+		set gE 10;
+		set dmgType "energy";
+		set Th_U_P  [expr   $gap + 0.040];
+		set Th_U_N  [expr  -$gap - 0.040];
+	}
+
+	# Create material
+	set Dummy_ID [expr   $SpringID + 2]; 
+	if {$ResponseID < 2} {
+		uniaxialMaterial Pinching4 $Dummy_ID $M1_P $Th_1_P $M2_P $Th_2_P $M3_P $Th_3_P $M4_P $Th_4_P     $M1_N $Th_1_N $M2_N $Th_2_N $M3_N $Th_3_N $M4_N $Th_4_N    $rDispP $rForceP $uForceP   $rDispN $rForceN $uForceN   $gK1 $gK2 $gK3 $gK4 $gKLim     $gD1 $gD2 $gD3 $gD4 $gDLim   $gF1 $gF2 $gF3 $gF4 $gFLim     $gE $dmgType;
+		uniaxialMaterial MinMax    $SpringID $Dummy_ID -min $Th_U_N -max $Th_U_P;
+	} else {
+		# Stiffening Spring
+		set Esc [expr $M_max_pos / $Th_2_P];
+		set My [expr  0.71 * $M_max_pos];
+		set eta 0.0001;
+		set damage "damage"
+		
+		uniaxialMaterial ElasticPPGap $Dummy_ID $Esc $My $gap $eta $damage;
+		uniaxialMaterial MinMax 	  $SpringID $Dummy_ID -max [expr   $gap + 0.040];
+		
+	}
+
+	# Create spring
+	equalDOF $node_i $node_j 1 2	
+	element zeroLength $SpringID $node_i $node_j -mat $SpringID -dir 6
+
+}
+
 
 puts "All Functions and Procedures Have Been Sourced"

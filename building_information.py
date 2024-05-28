@@ -75,6 +75,8 @@ class Building(object):
         self.read_gravity_loads()
         self.read_elf_parameters()
         self.read_design_constants()
+        self.read_gravity_system()
+        self.read_modeling_constants()
         self.determine_member_candidate()
         self.initialize_member()
 
@@ -230,8 +232,60 @@ class Building(object):
                 
         self.steel = SteelMaterial(yield_stress=self.yield_stress, ultimate_stress=self.ultimate_stress, 
                                    elastic_modulus=self.elastic_modulus, Ry_value=self.Ry_value)  # Unit: ksi
+    
+    
+    def read_modeling_constants(self):
+        """
+        This method is used to read the design constants for this frame
         
+        """
+        
+        modeling_constants = pd.read_csv(os.path.join(self.directory['building data'], 'modeling_constants.csv'))
+        
+        self.damping_ratio = float(modeling_constants['Value'][modeling_constants['Variable'] == 'damping_ratio'].to_numpy()[0])
+        
+        self.Comp_I = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Comp_I'].to_numpy()[0])
+        self.Comp_I_GC = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Comp_I_GC'].to_numpy()[0])
+        self.MpP_Mp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'MpP_Mp'].to_numpy()[0])
+        self.MpN_Mp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'MpN_Mp'].to_numpy()[0])      
+        self.Mc_MpP = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Mc_MpP'].to_numpy()[0])
+        self.Mc_MpN = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Mc_MpN'].to_numpy()[0])      
+        self.Mr_MpP = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Mr_MpP'].to_numpy()[0])
+        self.Mr_MpN = float(modeling_constants['Value'][modeling_constants['Variable'] == 'Mr_MpN'].to_numpy()[0])
+        self.D_P = float(modeling_constants['Value'][modeling_constants['Variable'] == 'D_P'].to_numpy()[0])
+        self.D_N = float(modeling_constants['Value'][modeling_constants['Variable'] == 'D_N'].to_numpy()[0])
+        self.theta_p_P_comp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'theta_p_P_comp'].to_numpy()[0])
+        self.theta_p_N_comp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'theta_p_N_comp'].to_numpy()[0])
+        self.theta_pc_P_comp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'theta_pc_P_comp'].to_numpy()[0])
+        self.theta_pc_N_comp = float(modeling_constants['Value'][modeling_constants['Variable'] == 'theta_pc_N_comp'].to_numpy()[0])
+        self.trib = float(modeling_constants['Value'][modeling_constants['Variable'] == 'trib'].to_numpy()[0])
+        self.ts = float(modeling_constants['Value'][modeling_constants['Variable'] == 'ts'].to_numpy()[0])      
+        self.gap = float(modeling_constants['Value'][modeling_constants['Variable'] == 'gap'].to_numpy()[0])
+        self.panel_zone_model = str(modeling_constants['Value'][modeling_constants['Variable'] == 'panel_zone_model'].to_numpy()[0])
+    
 
+    def read_gravity_system(self):
+        """
+        This method is used to read the building gravity system information from .csv files:
+        (1) Change the working directory to the folder where .csv data are stored
+        (2) Open the .csv file and save all relevant information to the object itself
+        """
+        gravity_system_data = pd.read_csv(os.path.join(self.directory['building data'], 'GravitySystem.csv'), header=0)
+        # Store all necessary information into a dictionary named geometry
+        column = gravity_system_data['column'].to_list()
+        girder = gravity_system_data['girder'].to_list()
+        bays = gravity_system_data['bays'].to_list()        
+        
+        # Load: SECTION_DATABASE_AISC (contains all sizes available for graviuty members)
+        section_database_AISC_path = gravity_system_data['SECTION_DATABASE_AISC'].to_numpy()[0]
+        self.SECTION_DATABASE_AISC = pd.read_csv(section_database_AISC_path, header=0)
+        
+        # Store all necessary information into a dictionary named gravity_loads
+        self.member_size_EGF = {'column': column,
+                              'girder': girder,
+                              'bays': bays}
+        
+        
     def compute_seismic_force(self):
         """
         This method is used to calculate the seismic story force using ELF procedure specified in ASCE 7-10 Section 12.8

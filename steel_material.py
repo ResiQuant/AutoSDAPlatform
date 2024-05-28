@@ -18,12 +18,15 @@ class SteelMaterial(object):
     (4) Ry value
     """
 
-    def __init__(self, yield_stress=50, ultimate_stress=65, elastic_modulus=29000, Ry_value=1.1):
+    def __init__(self, yield_stress=50, ultimate_stress=65, elastic_modulus=29000, Ry_value=1.1, poisson_ratio=0.3):
         """
-        :param yield_stress: Fy of steel material, default value is 50 ksi
-        :param elastic_modulus: E of steel material, default value is 29000 ksi
+        : yield_stress: Fy of steel material, default value is 50 ksi
+        : elastic_modulus: E of steel material, default value is 29000 ksi
+        : poisson ratio: 
+        
         """
         self.Fy = yield_stress
         self.Fu = ultimate_stress
         self.E = elastic_modulus
         self.Ry = Ry_value
+        self.poisson_ratio = poisson_ratio

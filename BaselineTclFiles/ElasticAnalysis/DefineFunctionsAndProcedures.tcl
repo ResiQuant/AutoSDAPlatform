@@ -64,15 +64,16 @@ proc SectionProperty { shape } {
 #          	  				       Define rotational springs for leaning column 						    				 #
 ##############################################################################################################################
 
-proc rotLeaningCol {eleID nodeR nodeC} {
+proc rotLeaningCol {eleID nodeR nodeC K} {
 
 # 	Formal arguments
 #       eleID   - unique element ID for this zero length rotational spring
 #       nodeR   - node ID which will be retained by the multi-point constraint
 #       nodeC   - node ID which will be constrained by the multi-point constraint
+#		K		- rotational stiffness of the elastic spring [kip/in]
 
 	#Spring Stiffness
-	set K 1e-9; # k/in
+	#set K 1e-9; # k/in
 
 	# Create the material and zero length element (spring)
     uniaxialMaterial Elastic  $eleID  $K	

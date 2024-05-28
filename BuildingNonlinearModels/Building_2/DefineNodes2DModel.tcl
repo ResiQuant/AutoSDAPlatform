@@ -73,19 +73,3 @@ NodesAroundPanelZone	6	4	[expr 5*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory]
 
 puts "Nodes for frame defined" 
 
-# Define nodes for leaning column 
-node	 7120	[expr 6*$BayWidth]	[expr 0*$FirstStory+0*$TypicalStory];	#Level 1
-node	 7220	[expr 6*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	#Level 2
-node	 7320	[expr 6*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Level 3
-node	 7420	[expr 6*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Level 4
-
-puts "Nodes for leaning column defined" 
-
-# Define extra nodes needed to define leaning column springs 
-node	72220	[expr 6*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node below floor level 2
-node	72420	[expr 6*$BayWidth]	[expr 1*$FirstStory+0*$TypicalStory];	# Node above floor level 2
-node	73220	[expr 6*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node below floor level 3
-node	73420	[expr 6*$BayWidth]	[expr 1*$FirstStory+1*$TypicalStory];	# Node above floor level 3
-node	74220	[expr 6*$BayWidth]	[expr 1*$FirstStory+2*$TypicalStory];	# Node below floor level 4
-
-puts "Extra nodes for leaning column springs defined"

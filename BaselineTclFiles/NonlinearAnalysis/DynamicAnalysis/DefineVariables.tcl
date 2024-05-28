@@ -25,10 +25,10 @@ geomTransf Linear $LinearTransf;
 set n 10;
 
 # Define Young's modulus for steel material
-set Es 29000;
+#set Es 29000;
 
 # Define Yielding stress for steel material
-set Fy 50.00;
+#set Fy 50.00;
 
 # Define a very small number
 set Negligible 1e-9;
@@ -43,7 +43,7 @@ set g 386.4;
 set TrussMatID 600;     # Material tag
 set AreaRigid  1e7;        # Large area
 set IRigid     1e7;     # Large moment of inertia
-uniaxialMaterial Elastic $TrussMatID $Es;
+uniaxialMaterial Elastic $TrussMatID 29000;
 
 # Define very stiff material used for axial stiffness of beam/column hinges
 set StiffMatID 1200

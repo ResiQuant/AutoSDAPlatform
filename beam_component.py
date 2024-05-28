@@ -20,16 +20,20 @@ class Beam(object):
     (4) Beam flag, a boolean variable with True or False. If it is True, the beam is feasible.
     """
 
-    def __init__(self, section_size, length, shear_demand, moment_demand_left, moment_demand_right, steel, SECTION_DATABASE):
+    def __init__(self, section_size, length, shear_demand, moment_demand_left, moment_demand_right, steel, 
+                 SECTION_DATABASE, useIMK=False):
         """
         This function initializes the attributes of the beam class.
-        :param section_size: a string specifying the section size for the beam.
-        :param length: a float number denoting the beam length.
-        :param shear_demand: a float number denoting the shear demand.
-        :param moment_demand_left: a float number denoting the moment demand at right end.
-        :param moment_demand_right: a float number denoting the moment demand at left end.
-        :param steel: object with steel properties
-        :param SECTION_DATABASE: csv with all steel sections
+        : section_size: a string specifying the section size for the beam.
+        : length: a float number denoting the beam length.
+        : shear_demand: a float number denoting the shear demand.
+        : moment_demand_left: a float number denoting the moment demand at right end.
+        : moment_demand_right: a float number denoting the moment demand at left end.
+        : steel: object with steel properties
+        : SECTION_DATABASE: csv with all steel sections
+        : useIMK: (bool) 
+            True -> use monotonic backbone and IMK model for hinges
+            False -> use first cycle backbone and hysteretic model for hinges
         """
         # Assign the necessary information for column class
         self.section = search_section_property(section_size, SECTION_DATABASE)
@@ -44,7 +48,8 @@ class Beam(object):
         self.is_feasible = {}  # a dictionary used to store the failure mode of beam (if any)
         # Define a boolean flag which denotes the overall check results
         self.flag = None
-
+        # Define boolean flag for type of hinge model
+        self.useIMK = useIMK    
         # Define a hinge dictionary to store all modeling parameters
         self.plastic_hinge = {}
 
@@ -56,7 +61,11 @@ class Beam(object):
         self.check_shear_strength(steel)
         self.check_flexural_strength(steel)
         self.compute_demand_capacity_ratio()
-        self.calculate_hinge_parameters(steel)
+        
+        if useIMK:
+            self.calculate_hinge_parameters_monotonic(steel)
+        else:
+            self.calculate_hinge_parameters_first_cycle(steel)
 
     def initialize_reduced_beam_section(self):
         """
@@ -179,10 +188,13 @@ class Beam(object):
         self.demand_capacity_ratio['flexural'] = max(abs(self.demand['moment left']),
                                                      abs(self.demand['moment right'])) / self.strength['flexural RBS']
 
-    def calculate_hinge_parameters(self, steel):
+    def calculate_hinge_parameters_monotonic(self, steel):
         """
         This method is used to compute the modeling parameters for plastic hinge using modified IMK material model.
         :return: a dictionary including each parameters required for nonlinear modeling in OpenSees.
+        
+        USE MONOTONIC ENVELOPE (FOR EXPLICIT CYCLIC DEGRADATION MODELS)
+        
         """
         # Following content is based on the following reference:
         # [1] Hysteretic models tha incorporate strength and stiffness deterioration
@@ -206,6 +218,7 @@ class Beam(object):
         c2 = 6.895  # c2_unit
         McMy = 1.10  # Capping moment to yielding moment ratio. Lignos et al. used 1.05 whereas Prof. Burton used 1.11.
         h = self.section['d'] - 2*self.section['tf']  # Web depth
+        
         self.plastic_hinge['K0'] = 6 * steel.E * self.section['Ix'] / (self.length*12.0)
         self.plastic_hinge['Myp'] = self.section['Zx'] * steel.Fy
         self.plastic_hinge['My'] = 1.00 * self.plastic_hinge['Myp']
@@ -237,3 +250,65 @@ class Beam(object):
                                    /(self.plastic_hinge['theta_p']*self.plastic_hinge['K0'])
         self.plastic_hinge['residual'] = 0.40
         self.plastic_hinge['theta_u'] = 0.20
+        
+
+    def calculate_hinge_parameters_first_cycle(self, steel):
+        """
+        This method is used to compute the modeling parameters for plastic hinge using modified IMK material model.
+        :return: a dictionary including each parameters required for nonlinear modeling in OpenSees.
+        
+        USE FIRST-CYCLE ENVELOPE (FOR NO CYCLIC DEGRADATION MODELS) 
+        
+        """
+        # Following content is based on the following reference:
+        # [1] Hysteretic models tha incorporate strength and stiffness deterioration
+        # [2] Deterioration modeling of steel components in support of collapse prediction of steel moment frames under
+        #     earthquake loading
+        # [3] Global collapse of frame structures under seismic excitations
+        # [4] Sidesway collapse of deteriorating structural systems under seismic excitations
+        # dictionary keys explanations:
+        #                              K0: beam stiffness, 6*E*Iz/L
+        #                              Myp: bending strength, product of section modulus and material yield strength
+        #                              My: effective yield strength, 1.06 * bending strength
+        #                              Lambda: reference cumulative plastic rotation
+        #                              theta_p: pre-capping plastic rotation
+        #                              theta_pc: post-capping plastic rotation
+        #                              as: strain hardening before modified by n (=10)
+        #                              residual: residual strength ratio, use 0.40 per Lignos' OpenSees example
+        #                              theta_u: ultimate rotation, use 0.40 per Lignos' OpenSees example
+        # unit: kips, inches
+        # beam spacing and length is in feet, remember to convert it to inches
+
+        McMy = 1.15  # Capping moment to yielding moment ratio. Lignos et al. used 1.05 whereas Prof. Burton used 1.11
+        self.plastic_hinge['McMy'] = McMy
+        h = self.section['d'] - 2*self.section['tf']  # Web depth
+        
+        # Beam component rotational stiffness
+        self.plastic_hinge['K0'] = 6 * steel.E * self.section['Ix'] / (self.length*12.0)
+        self.plastic_hinge['eleLength'] = self.length*12.0
+        self.plastic_hinge['EIeff'] = steel.E * self.section['Ix']
+        
+        # Flexual strength
+        self.plastic_hinge['Myp'] = self.section['Zx'] * steel.Fy
+        self.plastic_hinge['My'] = steel.Ry * self.plastic_hinge['Myp']
+        
+        # Pre-capping rotation
+        self.plastic_hinge['theta_u'] = 0.08
+        self.plastic_hinge['theta_p'] = np.min([0.55 * (self.section['h to tw ratio'])**(-0.5) \
+                                        * (self.section['bf']/(2*self.section['tf']))**(-0.700) \
+                                        * (self.spacing*12.0/self.section['ry'])**(-0.5) \
+                                        * (self.length*12.0/self.section['d'])**0.8, 0.07])
+        # # Pre-capping rotation is further revised to exclude the elastic deformation (this is done in the matHysteretic.tcl function)
+        # self.plastic_hinge['theta_p'] = self.plastic_hinge['theta_p'] \
+        #                                 - (McMy - 1.0) * self.plastic_hinge['My'] / self.plastic_hinge['K0']
+        # Post-capping rotation
+        self.plastic_hinge['theta_pc'] = np.min([20 * (self.section['h to tw ratio'])**(-0.8) \
+                                         * (self.section['bf']/(2*self.section['tf']))**(-0.1) \
+                                         * (self.spacing*12.0/self.section['ry'])**(-0.6), self.plastic_hinge['theta_u'] - self.plastic_hinge['theta_p']])
+        # Post-capping rotation is further revised to account for elastic deformation (this is done in the matHysteretic.tcl function)
+        # self.plastic_hinge['theta_y'] = self.plastic_hinge['My'] / self.plastic_hinge['K0']
+        # self.plastic_hinge['theta_pc'] = self.plastic_hinge['theta_pc'] \
+        #                                  + self.plastic_hinge['theta_y'] \
+        #                                  + (McMy - 1.0) * self.plastic_hinge['My'] / self.plastic_hinge['K0']
+        self.plastic_hinge['residual'] = 0.30
+                

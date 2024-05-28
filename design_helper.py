@@ -49,6 +49,31 @@ def create_column_set(building, elastic_demand, steel, verbose):
         column_set.append(one_story_columns)
     return column_set, not_feasible_column
 
+def create_EGF_column_set(building, steel):
+    """
+    This function is used to create a set of columns for the entire building.
+    :param building: a class defined in "building_information.py" file.
+    :param steel: a class defined in "steel_material.py" file.
+    :return: a M*N list where M represents the number of story and N represents the number of columns per story.
+            Each element is an object of the class Column defined in "column_component.py" file.
+    """
+    # Check all columns to see whether they have enough strengths
+    # Initialize a list to store all column instances
+    column_set = []
+    for story in range(building.geometry['number of story']):
+        one_story_columns = []
+        for column_no in range(building.geometry['number of X bay'] + 1):
+            axial_demand  = 0.1
+            shear_demand  = 0.1
+            moment_bottom = 0.1
+            moment_top    = 0.1
+            length = (building.geometry['floor height'][story + 1] - building.geometry['floor height'][story]).item()
+            # Build instance for each column member
+            temp_column = Column(building.member_size_EGF['column'][story], axial_demand, shear_demand, moment_bottom,
+                                 moment_top, length, length, steel, building.SECTION_DATABASE)
+            one_story_columns.append(temp_column)            
+        column_set.append(one_story_columns)
+    return column_set
 
 def create_beam_set(building, elastic_demand, steel, verbose):
     """
@@ -167,13 +192,14 @@ def create_connection_set(building, column_set, beam_set, steel, verbose):
     return connection_set, not_feasible_connection
 
 
-def save_python_files(building, column_set, beam_set, connection_set, constructability):
+def save_python_files(building, column_set, beam_set, connection_set, column_set_EGF, constructability):
     """
     This function is used to save all the python files which include the design results.
     :param building: a class defined in "building_information.py" file.
     :param column_set: a set of columns with M*N dimensions.
     :param beam_set: a set of beams with M*N dimensions.
     :param connection_set: a set of connections for the entire building.
+    :param column_set_EGF: a set of column instances for the entire gravity frame of the building.
     :param constructability: a boolean variable to denote whether the design considers the constructability.
     :return: No return. Just save all files.
     """
@@ -192,9 +218,14 @@ def save_python_files(building, column_set, beam_set, connection_set, constructa
     # Store the construction column set
     with open(os.path.join(building.directory['building data'],prefix + 'column_set.pkl'), 'wb') as output_file:
         pickle.dump(column_set, output_file)
-
+        
+    # Store the construction connection set
     with open(os.path.join(building.directory['building data'],prefix + 'connection_set.pkl'), 'wb') as output_file:
         pickle.dump(connection_set, output_file)
+    
+    # Store the construction column set for the gravity system
+    with open(os.path.join(building.directory['building data'],prefix + 'column_set_EGF.pkl'), 'wb') as output_file:
+        pickle.dump(column_set_EGF, output_file)
 
 
 def save_design_size(building, constructability):
@@ -328,19 +359,20 @@ def store_beam_demand_to_capacity_ratios(building, beam_set, constructability):
         pd.DataFrame(columns=header, data=beam_DC).to_csv(os.path.join(building.directory['building data'], file_name), sep=',', index=False)
 
 
-def save_all_design_results(building, column_set, beam_set, connection_set, constructability):
+def save_all_design_results(building, column_set, beam_set, connection_set, column_set_EGF, constructability):
     """
     This function calls the aforementioned functions to save all design details.
     :param building: a class defined in "building_information.py" file.
     :param column_set: a set of column instances for the entire building.
     :param beam_set: a set of beam instances for the entire building.
     :param connection_set: a set of connection instances for the entire building.
+    :param column_set_EGF: a set of column instances for the entire gravity frame of the building.
     :param constructability: a boolean variable to denote whether to consider the constructability.
     :return: No variables. Just save all design details.
     """
     
     # Save all python files which include design results.
-    save_python_files(building, column_set, beam_set, connection_set, constructability)
+    save_python_files(building, column_set, beam_set, connection_set, column_set_EGF, constructability)
     # Store the design member sizes
     save_design_size(building, constructability)
     # Store the design drifts

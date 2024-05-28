@@ -24,6 +24,9 @@
 # Define Young's modulus of steel
 	set Es 	29000;
 	
+# Define n factor for elastic stiffness modification for CPH models
+	set n 10;
+	
 # Define very small number
 	set Negligible 1e-9;
 	

@@ -20,14 +20,17 @@ roofDrift = tempDrift(:,2);
 
 cd (forceDir);
 tempForce = importdata('XReactions.out');
-baseReaction = sum(tempForce(:,2:end), 2)*(-1);
+baseReaction = sum(tempForce(:,2:end-2), 2)*(-1);
 tempForce = importdata('VerticalReactions.out');
-VerticalReaction = sum(tempForce(end,:));
-
+VerticalReaction = sum(tempForce(end-2,:));
+VerticalReaction
 cd (currentDir)
-    
-plot(roofDrift, baseReaction/VerticalReaction, 'linewidth', 2);
+   
+steps = min([length(roofDrift), length(baseReaction)]) - 2;
+
+plot(roofDrift(1:steps), baseReaction(1:steps)/VerticalReaction, 'linewidth', 2);
 xlim([0, 0.10])
+ylim([0, 0.6])
 xlabel('Roof drift', 'fontname', 'times new roman', 'fontsize', 12)
 ylabel('Base reaction (kip)', 'fontname', 'times new roman', 'fontsize', 12)
 set(gca, 'fontname', 'times new roman', 'fontsize', 12)

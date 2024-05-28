@@ -23,6 +23,7 @@ from elastic_output import ElasticOutput
 from design_helper import create_column_set
 from design_helper import create_beam_set
 from design_helper import create_connection_set
+from design_helper import create_EGF_column_set
 from design_helper import save_all_design_results
 
 ##########################################################################
@@ -615,6 +616,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory, verbose=False
     construction_beam_set, not_feasible_construction_beam = create_beam_set(building_3, elastic_demand_3, building_3.steel, verbose)
     construction_connection_set, not_feasible_construction_connection = \
         create_connection_set(building_3, construction_column_set, construction_beam_set, building_3.steel, verbose)
+    construction_column_set_EGF = create_EGF_column_set(building_3, building_3.steel)
 
     # ********************************************************************
     # //////////// Check Column Width Greater than Beam //////////////////
@@ -633,8 +635,7 @@ def seismic_design(building_id, base_directory, autoSDA_directory, verbose=False
 
     # Change the working directory to building data
     # save_all_design_results(building_1, column_set, beam_set, connection_set, False) # COMMENT TO NOT SAVE OPTIMAL, JUST CONSTRUCTIBLE MODEL
-    save_all_design_results(building_3, construction_column_set, construction_beam_set, construction_connection_set,
-                            True)
+    save_all_design_results(building_3, construction_column_set, construction_beam_set, construction_connection_set, construction_column_set_EGF, True)
     
     # Delete elastic model folder once finished design
     shutil.rmtree(building_3.directory['building elastic model'])

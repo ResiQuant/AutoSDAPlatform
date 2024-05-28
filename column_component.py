@@ -3,12 +3,8 @@
 # Updated in Oct. 2018
 
 import numpy as np
-import sys
-
 from scipy import interpolate
-
 from help_functions import search_section_property
-#from global_variables import SECTION_DATABASE
 
 # #########################################################################
 #                           Define a class of column                      #
@@ -23,18 +19,23 @@ class Column(object):
     (4) Column flag, an integer with value of zero or nonzero. If it's zero, the column is feasible.
     """
 
-    def __init__(self, section_size, axial_demand, shear_demand, moment_demand_bot, moment_demand_top, Lx, Ly, steel, SECTION_DATABASE):
+    def __init__(self, section_size, axial_demand, shear_demand, moment_demand_bot, moment_demand_top, Lx, Ly, steel, 
+                 SECTION_DATABASE, useIMK=False):
         """
         This function initializes the attributes of class of column.
-        :param section_size: a string which specifies the size for column.
-        :param axial_demand: a float number which describes axial demand.
-        :param shear_demand: a float number which describes shear demand.
-        :param moment_demand_bot: a float number which describes moment demand at bottom of column.
-        :param moment_demand_top: a float number which describes moment demand at top of column.
-        :param Lx: unbraced length in x direction.
-        :param Ly: unbraced length in y direction.
-        :param steel: object with steel properties
-        :param SECTION_DATABASE: csv with all steel sections
+        : section_size: a string which specifies the size for column.
+        : axial_demand: a float number which describes axial demand.
+        : shear_demand: a float number which describes shear demand.
+        : moment_demand_bot: a float number which describes moment demand at bottom of column.
+        : moment_demand_top: a float number which describes moment demand at top of column.
+        : Lx: unbraced length in x direction.
+        : Ly: unbraced length in y direction.
+        : steel: object with steel properties
+        : SECTION_DATABASE: csv with all steel sections        
+        : useIMK: (bool) 
+            True -> use monotonic backbone and IMK model for hinges
+            False -> use first cycle backbone and hysteretic model for hinges
+
         """
         # Assign the necessary information for column class
         self.section = search_section_property(section_size, SECTION_DATABASE)
@@ -49,8 +50,9 @@ class Column(object):
         # Initialize the dictionary to indicate the demand to capacity ratios
         self.demand_capacity_ratio = {}
         # Define a boolean flag to indicate the overall check results.
-        self.flag = None
-
+        self.flag = None        
+        # Define boolean flag for type of hinge model
+        self.useIMK = useIMK        
         # Define a hinge dictionary to store each parameters of OpenSees bilinear property
         self.plastic_hinge = {}
 
@@ -62,7 +64,10 @@ class Column(object):
         self.check_flexural_strength(steel)
         self.check_combined_loads()
         self.compute_demand_capacity_ratio()
-        self.calculate_hinge_parameters(steel)
+        if self.useIMK:
+            self.calculate_hinge_parameters_monotonic(steel)
+        else:
+            self.calculate_hinge_parameters_first_cycle(steel)
 
     def check_flange(self, steel):
         """
@@ -251,10 +256,13 @@ class Column(object):
         self.demand_capacity_ratio['flexural'] = max(abs(self.demand['moment bottom']), abs(self.demand['moment top']))\
                                                  /self.strength['flexural']
 
-    def calculate_hinge_parameters(self, steel):
+    def calculate_hinge_parameters_monotonic(self, steel):
         """
         This method is used to compute the modeling parameters for plastic hinge using modified IMK material model.
         :return: a dictionary including each parameters required for nonlinear modeling in OpenSees.
+        
+        USE MONOTONIC ENVELOPE (FOR EXPLICIT CYCLIC DEGRADATION MODELS)
+        
         """
         # Following content is based on the following reference:
         # [1] Hysteretic models tha incorporate strength and stiffness deterioration
@@ -280,8 +288,6 @@ class Column(object):
             #sys.stderr.write('Axial load ratio exceeds 1.0. Increase section!\n')     
             self.demand_capacity_ratio['axial'] = 0.99 # change to max value to avoid Numerical issues
         
-        c1 = 25.4  # c1_unit
-        c2 = 6.895  # c2_unit
         h = self.section['d'] - 2*self.section['tf']  # Web depth
         # Capping moment to yielding moment ratio. Lignos et al. used 1.05 whereas Prof. Burton used 1.11.
         McMy = 12.5 * (h/self.section['tw'])**(-0.2) \
@@ -305,15 +311,15 @@ class Column(object):
         # Reference cumulative plastic rotation:
         if self.demand_capacity_ratio['axial'] <= 0.35:
             self.plastic_hinge['Lambda'] = 255000 * (h/self.section['tw'])**(-2.14) \
-                                           * (self.unbraced_length['x']/self.section['ry']) ** (-0.53) \
+                                           * (self.unbraced_length['x']*12/self.section['ry']) ** (-0.53) \
                                            * (1-self.demand_capacity_ratio['axial'])**4.92
         else:
             self.plastic_hinge['Lambda'] = 268000 * (h/self.section['tw'])**(-2.30) \
-                                           * (self.unbraced_length['x']/self.section['ry'])**(-1.30) \
+                                           * (self.unbraced_length['x']*12/self.section['ry'])**(-1.30) \
                                            * (1-self.demand_capacity_ratio['axial'])**1.19
         # Pre-capping rotation:
         self.plastic_hinge['theta_p'] = 294 * (h/self.section['tw'])**(-1.7) \
-                                        * (self.unbraced_length['x']/self.section['ry'])**(-0.7) \
+                                        * (self.unbraced_length['x']*12/self.section['ry'])**(-0.7) \
                                         * (1-self.demand_capacity_ratio['axial'])**(1.6)
         self.plastic_hinge['theta_p'] = min(self.plastic_hinge['theta_p'], 0.20)
         # Pre-capping rotation is further revised to exclude the elastic deformation
@@ -321,7 +327,7 @@ class Column(object):
                                         - (McMy-1.0)*self.plastic_hinge['My'] / self.plastic_hinge['K0']
         # Post-capping rotation:
         self.plastic_hinge['theta_pc'] = 90 * (h/self.section['tw'])**(-0.8) \
-                                         * (self.unbraced_length['x']/self.section['ry'])**(-0.8) \
+                                         * (self.unbraced_length['x']*12/self.section['ry'])**(-0.8) \
                                          * (1-self.demand_capacity_ratio['axial'])**2.5
         # Post-capping rotation is further revised to account for elastic deformation
         self.plastic_hinge['theta_y'] = self.plastic_hinge['My'] / self.plastic_hinge['K0']
@@ -332,3 +338,87 @@ class Column(object):
                                    /(self.plastic_hinge['theta_p']*self.plastic_hinge['K0'])
         self.plastic_hinge['residual'] = 0.5 - 0.4*self.demand_capacity_ratio['axial']
         self.plastic_hinge['theta_u'] = 0.15
+        
+    
+    def calculate_hinge_parameters_first_cycle(self, steel):
+        """
+        This method is used to compute the modeling parameters for plastic hinge using modified IMK material model.
+        :return: a dictionary including each parameters required for nonlinear modeling in OpenSees.
+        
+        USE FIRST-CYCLE ENVELOPE (FOR NO CYCLIC DEGRADATION MODELS) 
+        
+        """
+        # Following content is based on the following reference:
+        # [1] Hysteretic models tha incorporate strength and stiffness deterioration
+        # [2] Deterioration modeling of steel components in support of collapse prediction of steel moment frames under
+        #     earthquake loading
+        # [3] Global collapse of frame structures under seismic excitations
+        # [4] Sidesway collapse of deteriorating structural systems under seismic excitations
+        # dictionary keys explanations:
+        #                              K0: beam stiffness, 6*E*Iz/L
+        #                              Myp: bending strength, product of section modulus and material yield strength
+        #                              My: effective yield strength, 1.06 * bending strength
+        #                              Lambda: reference cumulative plastic rotation
+        #                              theta_p: pre-capping plastic rotation
+        #                              theta_pc: post-capping plastic rotation
+        #                              as: strain hardening before modified by n (=10)
+        #                              residual: residual strength ratio, use 0.40 per Lignos' OpenSees example
+        #                              theta_u: ultimate rotation, use 0.40 per Lignos' OpenSees example
+        # Note that for column, the unbraced length is the column length itself.
+        # units: kips, inches
+        # Note that column unbraced length is in feet, remember to convert it to inches
+        #
+        
+        if self.demand_capacity_ratio['axial'] > 1.0:
+            #sys.stderr.write('Axial load ratio exceeds 1.0. Increase section!\n')     
+            self.demand_capacity_ratio['axial'] = 0.99 # change to max value to avoid Numerical issues
+        
+        h = self.section['d'] - 2*self.section['tf']  # Web depth
+        
+        # Capping moment to yielding moment ratio. Lignos et al. used 1.05 whereas Prof. Burton used 1.11.
+        McMy = 9.5 * (self.section['h to tw ratio'])**(-0.4) \
+               * (self.unbraced_length['x']*12.0/self.section['ry'])**(-0.16) \
+               * (1-self.demand_capacity_ratio['axial']) ** (0.2)
+        if McMy < 1.0:
+            McMy = 1.0
+        if McMy > 1.3:
+            McMy = 1.3
+        self.plastic_hinge['McMy'] = McMy
+        
+        # Beam component rotational stiffness
+        self.plastic_hinge['K0'] = 6 * steel.E * self.section['Ix'] / (self.unbraced_length['x']*12.0)
+        self.plastic_hinge['eleLength'] = self.unbraced_length['x']*12.0
+        self.plastic_hinge['EIeff'] = steel.E * self.section['Ix']
+        
+        # Flexual strength
+        self.plastic_hinge['Myp'] = self.section['Zx'] * steel.Fy
+        # Effective flexural strength
+        beta = 1.00 # overstrength factor (1.15 in NIST2017 but using MmaxOverMp is better to use 1.0 here)
+        if self.demand_capacity_ratio['axial'] <= 0.2:
+            self.plastic_hinge['My'] = beta * steel.Ry * self.plastic_hinge['Myp'] \
+                                       * (1 - 0.5*self.demand_capacity_ratio['axial'])
+        else:
+            self.plastic_hinge['My'] = beta * steel.Ry * self.plastic_hinge['Myp'] \
+                                       * 9/8 * (1 - self.demand_capacity_ratio['axial'])
+                
+        self.plastic_hinge['theta_u'] = 0.08*(1 - 0.6*self.demand_capacity_ratio['axial'])
+        
+        # Pre-capping rotation:
+        self.plastic_hinge['theta_p'] = 15 * (self.section['h to tw ratio'])**(-1.6) \
+                                        * (self.unbraced_length['x']*12/self.section['ry'])**(-0.3) \
+                                        * (1-self.demand_capacity_ratio['axial'])**(2.3)
+        self.plastic_hinge['theta_p'] = min(self.plastic_hinge['theta_p'], self.plastic_hinge['theta_u']*0.9)
+        # # Pre-capping rotation is further revised to exclude the elastic deformation (this is done in the matHysteretic.tcl function)
+        # self.plastic_hinge['theta_p'] = self.plastic_hinge['theta_p'] \
+        #                                 - (McMy-1.0)*self.plastic_hinge['My'] / self.plastic_hinge['K0']
+        # Post-capping rotation:
+        self.plastic_hinge['theta_pc'] = np.min([14 * (self.section['h to tw ratio'])**(-0.8) \
+                                         * (self.unbraced_length['x']*12/self.section['ry'])**(-0.5) \
+                                         * (1-self.demand_capacity_ratio['axial'])**3.2, 0.10])
+        # # Post-capping rotation is further revised to account for elastic deformation (this is done in the matHysteretic.tcl function)
+        # self.plastic_hinge['theta_y'] = self.plastic_hinge['My'] / self.plastic_hinge['K0']
+        # self.plastic_hinge['theta_pc'] = self.plastic_hinge['theta_pc'] \
+        #                                  + self.plastic_hinge['theta_y'] \
+        #                                  + (McMy-1.0)*self.plastic_hinge['My']/self.plastic_hinge['K0']
+        self.plastic_hinge['residual'] = 0.4 - 0.4*self.demand_capacity_ratio['axial']
+        

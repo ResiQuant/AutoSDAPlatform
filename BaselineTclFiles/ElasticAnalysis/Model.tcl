@@ -19,6 +19,7 @@ source DefineFunctionsAndProcedures.tcl
 
 # Defining nodes
 source DefineNodes2DModel.tcl
+source DefineNodes2DModelEGF.tcl
 
 # Defining node fixities
 source DefineFixities2DModel.tcl
@@ -26,17 +27,29 @@ source DefineFixities2DModel.tcl
 # Defining floor constraint
 # source DefineFloorConstraint2DModel.tcl
 
-# Defining beam elements
+# Defining beam elements for LFRS
 source DefineBeams2DModel.tcl
 
-# Defining column elements
+# Defining column elements for LFRS
 source DefineColumns2DModel.tcl
 
+# Defining links from frame to equivalent gravity frame or leaning column
+source DefineLinksEGF2DModel.tcl
+
+# Defining column elements for equivalent gravity frame or leaning column
+source DefineEGF2DModel.tcl
+
 # Defining rotational springs for leaning columns
-source DefineLeaningColumnSpring.tcl
+source DefineEGFSpring.tcl
 
 # Defining masses
 source DefineMasses2DModel.tcl
+
+# Plot frame
+# source DisplayModel2D.tcl;			# procedure for displaying a 2D perspective of model
+# source DisplayPlane.tcl;			# procedure for displaying a plane in a model
+# set ViewScale 5;
+# DisplayModel2D DeformedShape $ViewScale ;	# display deformed shape, the scaling factor needs to be adjusted for each model
 
 # Perform eigen value analysis
 if {$LoadType == "EigenValue"} {

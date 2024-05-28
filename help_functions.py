@@ -314,9 +314,13 @@ def search_section_property(target_size, section_database):
     # Then the property of the target section is returned as a dictionary.
     # If target size cannot match any existing sizes in database, a warning message should be given.
     try:
-        for indx in np.array(section_database['index']):
-            if target_size == section_database.loc[indx, 'section size']:
-                section_info = section_database.loc[indx, :]
+        for indx in np.array(section_database.index.to_list()):
+            if 'section size' in section_database.columns:
+                if target_size == section_database.loc[indx, 'section size']:
+                    section_info = section_database.loc[indx, :]
+            else:
+                if target_size == section_database.loc[indx, 'AISC_Manual_Label']:
+                    section_info = section_database.loc[indx, :]
         return section_info.to_dict()
     except:
         sys.stderr.write('Error: wrong size nominated!\nNo such size exists in section database!')
@@ -572,3 +576,5 @@ def increase_member_size(candidate, current_size):
         feasible_column_exist = False # replace by a nan to create and error and terminate run, otherwise code fall in infinte loop
         sys.stderr.write('The upper bound for depth initialization is too small!\n') #    
     return candidate[candidate_pool_index - 1], feasible_column_exist
+
+

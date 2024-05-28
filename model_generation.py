@@ -24,6 +24,8 @@ def model_generation(building_id, base_directory):
         building = pickle.load(file)
     with open('construction_column_set.pkl', 'rb') as file:
         column_set = pickle.load(file)
+    with open('construction_column_set_EGF.pkl', 'rb') as file:
+        column_set_EGF = pickle.load(file)
     with open('construction_beam_set.pkl', 'rb') as file:
         beam_set = pickle.load(file)
     with open('construction_connection_set.pkl', 'rb') as file:
@@ -51,7 +53,8 @@ def model_generation(building_id, base_directory):
     #                 Generate Nonlinear Analysis Model                      #
     ##########################################################################
 
-    analysis_list = ['EigenValueAnalysis', 'PushoverAnalysis']#, 'DynamicAnalysis']
+    analysis_list = ['EigenValueAnalysis', 'PushoverAnalysis']#,  PushoverAnalysis 'DynamicAnalysis']
     for analysis_type in analysis_list:
         print(building)
-        _ = NonlinearAnalysis(building, column_set, beam_set, connection_set, analysis_type, OpenSees_path)
+        _ = NonlinearAnalysis(building, column_set, beam_set, connection_set, column_set_EGF, analysis_type, OpenSees_path, 
+                              add_gravity_frame=True, composite_section=False)

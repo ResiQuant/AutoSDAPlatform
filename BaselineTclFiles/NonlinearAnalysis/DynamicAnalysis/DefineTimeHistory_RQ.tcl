@@ -15,7 +15,7 @@ pattern UniformExcitation  2   1  -accel   $Gaccel
 # Call Dynamic Analysis Solver and run for collapse tracing
 set currentTime [getTime];
 set dtAn [expr 1.0*$GM_dt];		# timestep of initial analysis	
-set GMtime [expr $GM_dt*$GM_numPoints + 10]; # add 10 seconds to get a stable residual drift
+set GMtime [expr $GM_dt*$GM_numPoints + 60]; # add 60 seconds to get a stable residual drift
 set firstTimeCheck [clock seconds];
 
 source DefineDynamicAnalysisParameters2DModel.tcl

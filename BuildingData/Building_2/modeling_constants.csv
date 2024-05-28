@@ -1,0 +1,20 @@
+Variable,Value,Description
+damping_ratio,0.02,elastic damping ratio
+Comp_I,1.4,"stiffness factor for composite actions for moment frame beams (Elkady and Lignos, 2015)"
+Comp_I_GC,1.4,"stiffness factor for composite action for equivalent gravity system girders (Elkady and Lignos, 2015)"
+MpP_Mp,1.3,"(Elkady and Lignos, 2015)"
+MpN_Mp,1.1,"(Elkady and Lignos, 2015)"
+Mc_MpP,1.3,"(Elkady and Lignos, 2015)"
+Mc_MpN,1.05,"(Elkady and Lignos, 2015)"
+Mr_MpP,0.3,"(Elkady and Lignos, 2015)"
+Mr_MpN,0.2,"(Elkady and Lignos, 2015)"
+D_P,1.15,"(Elkady and Lignos, 2015)"
+D_N,1,"(Elkady and Lignos, 2015)"
+theta_p_P_comp,1.8,"(Elkady and Lignos, 2015)"
+theta_p_N_comp,0.95,"(Elkady and Lignos, 2015)"
+theta_pc_P_comp,1.35,"(Elkady and Lignos, 2015)"
+theta_pc_N_comp,0.95,"(Elkady and Lignos, 2015)"
+gap,0.08,Gap between the end of the gravity girder and the face of the column [in]
+trib,3,Steel deck rib depth [in]
+ts,3,Concrete slab depth above the rib [in]
+panel_zone_model,Elkady2021,Options: 'Traditional' or 'Elkady2021'

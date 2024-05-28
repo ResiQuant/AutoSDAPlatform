@@ -9,5 +9,6 @@ fix	41110	1	1	1;
 fix	51110	1	1	1; 
 fix	61110	1	1	1; 
 fix	7120	1	1	0; 
+fix	8120	1	1	0; 
 
-puts "All column base fixities have been defined"
+# puts "All column base fixities have been defined"

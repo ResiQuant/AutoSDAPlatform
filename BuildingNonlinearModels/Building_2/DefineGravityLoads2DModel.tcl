@@ -27,31 +27,34 @@ set	LeaningColumnLiveLoadFloor4	316.406250;
 pattern	Plain	104	Constant	{
 
 # Level2
-load	11210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth/2]	0;
+load	11210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth*0.5]	0;
 load	21210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth]	0;
 load	31210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth]	0;
 load	41210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth]	0;
 load	51210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth]	0;
-load	61210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth/2]	0;
+load	61210	0	[expr (-1*$BeamDeadLoadFloor2 - 0.25*$BeamLiveLoadFloor2)*$BayWidth*0.5]	0;
 # Level3
-load	11310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth/2]	0;
+load	11310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth*0.5]	0;
 load	21310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth]	0;
 load	31310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth]	0;
 load	41310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth]	0;
 load	51310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth]	0;
-load	61310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth/2]	0;
+load	61310	0	[expr (-1*$BeamDeadLoadFloor3 - 0.25*$BeamLiveLoadFloor3)*$BayWidth*0.5]	0;
 # Level4
-load	11410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth/2]	0;
+load	11410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth*0.5]	0;
 load	21410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth]	0;
 load	31410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth]	0;
 load	41410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth]	0;
 load	51410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth]	0;
-load	61410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth/2]	0;
+load	61410	0	[expr (-1*$BeamDeadLoadFloor4 - 0.25*$BeamLiveLoadFloor4)*$BayWidth*0.5]	0;
 
 # Define point loads on leaning column
-load	7220	0	[expr -1*$LeaningColumnDeadLoadFloor2 - 0.25*$LeaningColumnLiveLoadFloor2]	0;
-load	7320	0	[expr -1*$LeaningColumnDeadLoadFloor3 - 0.25*$LeaningColumnLiveLoadFloor3]	0;
-load	7420	0	[expr -1*$LeaningColumnDeadLoadFloor4 - 0.25*$LeaningColumnLiveLoadFloor4]	0;
+load	7220	0	[expr -0.50*$LeaningColumnDeadLoadFloor2 - 0.25*0.5*$LeaningColumnLiveLoadFloor2]	0;
+load	8220	0	[expr -0.5*$LeaningColumnDeadLoadFloor2 - 0.25*0.5*$LeaningColumnLiveLoadFloor2]	0;
+load	7320	0	[expr -0.50*$LeaningColumnDeadLoadFloor3 - 0.25*0.5*$LeaningColumnLiveLoadFloor3]	0;
+load	8320	0	[expr -0.5*$LeaningColumnDeadLoadFloor3 - 0.25*0.5*$LeaningColumnLiveLoadFloor3]	0;
+load	7420	0	[expr -0.50*$LeaningColumnDeadLoadFloor4 - 0.25*0.5*$LeaningColumnLiveLoadFloor4]	0;
+load	8420	0	[expr -0.5*$LeaningColumnDeadLoadFloor4 - 0.25*0.5*$LeaningColumnLiveLoadFloor4]	0;
 
 }
 puts "Expected gravity loads defined"
